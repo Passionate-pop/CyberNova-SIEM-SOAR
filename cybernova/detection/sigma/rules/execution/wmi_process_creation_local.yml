@@ -1,0 +1,41 @@
+title: WMI Local Process Creation
+id: a1000002-0029-4000-8000-000000000029
+description: Detects local process creation via WMI using the Win32_Process.Create method
+references:
+    - https://attack.mitre.org/techniques/T1047/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.execution
+    - attack.t1047
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_wmi:
+        Image|endswith:
+            - \wmic.exe
+            - \powershell.exe
+            - \pwsh.exe
+        CommandLine|contains:
+            - 'Win32_Process'
+            - 'Create('
+            - 'process call create'
+    selection_wmic_process:
+        CommandLine|contains:
+            - 'process call create'
+    selection_powershell_wmi:
+        Image|endswith:
+            - \powershell.exe
+            - \pwsh.exe
+        CommandLine|contains:
+            - 'Invoke-WmiMethod'
+            - 'Invoke-CimMethod'
+            - "Create').Invoke"
+            - '[WMIClass]'
+            - 'Win32_Process'
+    condition: 1 of selection_*
+falsepositives:
+    - Legitimate software installation and management tools
+    - IT automation scripts using WMI for process creation
+level: high

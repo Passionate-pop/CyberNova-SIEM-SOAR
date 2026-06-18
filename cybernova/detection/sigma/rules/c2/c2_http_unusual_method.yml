@@ -1,0 +1,36 @@
+title: Unusual HTTP Method to External Host
+id: a1000010-0006-4000-8000-000000000006
+description: Detects HTTP requests with non-standard or unusual methods sent to external hosts, potentially indicating C2 communication
+references:
+    - https://attack.mitre.org/techniques/T1071/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.001
+logsource:
+    category: proxy
+    product: windows
+detection:
+    selection:
+        http_method|contains:
+            - 'OPTIONS'
+            - 'TRACE'
+            - 'PUT'
+            - 'DELETE'
+            - 'PATCH'
+            - 'PROPFIND'
+            - 'MOVE'
+            - 'COPY'
+            - 'SEARCH'
+            - 'CONNECT'
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection
+falsepositives:
+    - REST API clients using PUT/PATCH/DELETE
+    - WebDAV client activity
+    - Vulnerability scanners
+level: low

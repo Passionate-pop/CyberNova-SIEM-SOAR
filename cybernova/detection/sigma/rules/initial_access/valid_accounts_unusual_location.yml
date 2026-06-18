@@ -1,0 +1,29 @@
+title: Login from Unusual Geographic Location
+id: a1000001-0014-4000-8000-000000000014
+description: Detects authentication from countries or regions not previously associated with the user
+references:
+    - https://attack.mitre.org/techniques/T1078/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1078
+logsource:
+    category: authentication
+    product: cloud
+detection:
+    selection:
+        EventName: ConsoleLogin
+        SourceIPCountry|contains:
+            - RU
+            - CN
+            - KP
+            - IR
+            - SY
+            - NG
+    condition: selection
+falsepositives:
+    - User traveling to new regions
+    - VPN usage from restricted countries
+    - Remote employees
+level: medium

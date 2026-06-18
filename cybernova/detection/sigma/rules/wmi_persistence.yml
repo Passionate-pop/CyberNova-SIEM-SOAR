@@ -1,0 +1,24 @@
+title: WMI Persistence - Event Subscription
+id: e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b
+description: Detects WMI event subscription used for persistence
+references:
+    - https://attack.mitre.org/techniques/T1546/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1546.003
+logsource:
+    category: wmi_event
+    product: windows
+detection:
+    selection:
+        EventID: 5861
+        Query|contains:
+            - 'ActiveScriptEventConsumer'
+            - 'CommandLineEventConsumer'
+            - 'LogFileEventConsumer'
+    condition: selection
+falsepositives:
+    - Legitimate WMI monitoring solutions
+level: high

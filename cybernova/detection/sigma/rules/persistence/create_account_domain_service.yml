@@ -1,0 +1,23 @@
+title: Domain Service Account Creation
+id: a1000003-0047-4000-8000-000000000047
+description: Detects creation of domain service accounts often used for persistence
+references:
+    - https://attack.mitre.org/techniques/T1136/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1136
+    - attack.t1136.002
+logsource:
+    category: security
+    product: windows
+detection:
+    selection:
+        EventID: 4720
+        AccountName|endswith: '$'
+    condition: selection
+falsepositives:
+    - Legitimate service account provisioning
+    - Application installation creating service accounts
+level: low

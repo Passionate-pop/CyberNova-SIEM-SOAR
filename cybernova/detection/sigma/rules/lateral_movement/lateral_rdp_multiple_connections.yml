@@ -1,0 +1,24 @@
+title: Multiple RDP Connections From Single Source
+id: a1000008-0002-4000-8000-000000000002
+description: Detects a single source IP or host making multiple unique RDP connections to distinct destination hosts within a short time window, indicating lateral movement reconnaissance
+references:
+    - https://attack.mitre.org/techniques/T1021/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1021.001
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        EventID: 3
+        Initiated: 'true'
+        DestinationPort: 3389
+    timeframe: 5m
+    condition: selection | count(DestinationIp) by SourceIp > 5
+falsepositives:
+    - RDP gateway or remote desktop brokering services
+    - IT staff performing maintenance on multiple servers
+level: medium

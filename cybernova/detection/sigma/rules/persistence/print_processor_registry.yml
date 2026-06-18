@@ -1,0 +1,22 @@
+title: Print Processor Registry DLL Registration
+id: a1000003-0018-4000-8000-000000000018
+description: Detects modification to Print Processor registry key for DLL persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/012/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.012
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: 'Print Processors'
+    condition: selection
+falsepositives:
+    - Legitimate printer driver installation
+    - Enterprise print server configuration
+level: high

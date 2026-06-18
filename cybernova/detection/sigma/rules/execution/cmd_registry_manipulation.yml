@@ -1,0 +1,41 @@
+title: CMD Registry Manipulation
+id: a1000002-0009-4000-8000-000000000009
+description: Detects reg.exe usage for registry modifications commonly used for persistence or disabling security controls
+references:
+    - https://attack.mitre.org/techniques/T1059/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.execution
+    - attack.t1059.003
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: \reg.exe
+        CommandLine|contains:
+            - ' add '
+            - ' delete '
+            - ' copy '
+            - ' save '
+            - ' restore '
+            - ' load '
+            - ' unload '
+    selection_persistence:
+        CommandLine|contains:
+            - 'CurrentVersion\Run'
+            - 'CurrentVersion\RunOnce'
+            - 'CurrentVersion\RunServices'
+            - 'Windows\System\Scripts'
+            - 'Microsoft\Windows\CurrentVersion\Policies'
+            - 'Software\Microsoft\Windows\CurrentVersion\Run'
+            - 'SYSTEM\CurrentControlSet\Services'
+            - 'DisableAntiSpyware'
+            - 'DisableAntiVirus'
+            - 'EnableFirewall'
+    condition: all of selection_*
+falsepositives:
+    - Legitimate software installation and configuration
+    - System administration scripts modifying registry
+level: high

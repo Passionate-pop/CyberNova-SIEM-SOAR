@@ -1,0 +1,29 @@
+title: Structured Encrypted Data in Protocol Fields
+id: a1000010-0029-4000-8000-000000000029
+description: Detects protocol fields containing base64-encoded or hex-encoded data that when decoded exhibits high entropy, indicative of C2 encrypted payloads
+references:
+    - https://attack.mitre.org/techniques/T1573/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1573
+logsource:
+    category: proxy
+    product: windows
+detection:
+    selection_base64:
+        url_param|re: '^(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
+    selection_hex:
+        url_param|re: '^(?:[0-9a-fA-F]{2}){20,}$'
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: (selection_base64 or selection_hex) and selection_external
+falsepositives:
+    - Analytics tracking parameters
+    - Session tokens and CSRF tokens
+    - API authentication signatures
+level: medium

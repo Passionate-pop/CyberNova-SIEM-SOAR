@@ -1,0 +1,37 @@
+title: Email Database and PST File Export
+id: a1000009-0012-4000-8000-000000000012
+description: Detects access to Outlook PST/OST files or use of tools to export email data such as Outlook COM objects
+references:
+    - https://attack.mitre.org/techniques/T1005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1005
+logsource:
+    category: file_access
+    product: windows
+detection:
+    selection_pst:
+        TargetFilename|endswith:
+            - '.pst'
+            - '.ost'
+            - '.mbox'
+            - '.eml'
+    selection_outlook_com:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\pwsh.exe'
+        CommandLine|contains|all:
+            - 'New-Object'
+            - 'Outlook.Application'
+            - 'NameSpace'
+    selection_mail_exports:
+        CommandLine|contains|all:
+            - 'Export-Mailbox'
+            - 'MailboxExportRequest'
+    condition: selection_pst or selection_outlook_com or selection_mail_exports
+falsepositives:
+    - Legitimate email archiving and backup
+    - Email migration to different platforms
+level: medium

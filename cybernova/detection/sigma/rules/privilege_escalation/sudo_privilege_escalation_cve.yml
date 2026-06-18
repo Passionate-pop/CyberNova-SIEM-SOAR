@@ -1,0 +1,26 @@
+title: Known Sudo Privilege Escalation (CVE Patterns)
+id: a1000004-0012-4000-8000-000000000012
+description: Detects exploitation patterns matching known sudo privilege escalation vulnerabilities (CVE-2019-14287, CVE-2021-3156, etc.)
+references:
+    - https://attack.mitre.org/techniques/T1548/003/
+    - https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3156
+    - https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-14287
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1548.003
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        Image|endswith: '/sudo'
+        CommandLine|contains:
+            - 'sudo -u#-1'
+            - 'sudo -u#4294967295'
+            - 'sudoedit -s'
+    condition: selection
+falsepositives:
+    - Penetration testing activities
+level: critical

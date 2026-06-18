@@ -1,0 +1,24 @@
+title: Registry Query For Computer Name And Domain
+id: a1000007-0027-4000-8000-000000000027
+description: Detects registry queries for computer name and domain membership information
+references:
+    - https://attack.mitre.org/techniques/T1012/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.discovery
+    - attack.t1012
+logsource:
+    category: registry_query
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - 'SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName'
+            - 'SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Domain'
+            - 'SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Hostname'
+    condition: selection
+falsepositives:
+    - System administration tasks
+    - Network configuration scripts
+level: low

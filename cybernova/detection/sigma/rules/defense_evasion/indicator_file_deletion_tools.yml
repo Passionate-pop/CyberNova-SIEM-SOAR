@@ -1,0 +1,25 @@
+title: Use of Secure Deletion Tools
+id: a1000005-0036-4000-8000-000000000036
+description: Detects the use of secure file deletion tools like sdelete, shred, or wipe that overwrite files to prevent recovery.
+references:
+    - https://attack.mitre.org/techniques/T1070/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1070
+    - attack.t1070.004
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - '\sdelete.exe'
+            - '\sdelete64.exe'
+            - '\shred.exe'
+            - '\wipe.exe'
+    condition: selection
+falsepositives:
+    - Authorized secure deletion for data sanitization
+level: medium

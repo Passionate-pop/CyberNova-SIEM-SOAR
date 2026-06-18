@@ -1,0 +1,22 @@
+title: EventVwr.exe UAC Bypass
+id: a1000004-0007-4000-8000-000000000007
+description: Detects abuse of EventVwr.exe to bypass UAC by modifying registry keys under eventvwr shell command
+references:
+    - https://attack.mitre.org/techniques/T1548/002/
+    - https://enigma0x3.net/2016/08/15/fileless-uac-bypass-using-eventvwr-exe-and-registry-hijacking/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1548.002
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: '\mscfile\shell\open\command'
+        Image|endswith: '\eventvwr.exe'
+    condition: selection
+falsepositives:
+    - Rare legitimate debugging scenarios
+level: high

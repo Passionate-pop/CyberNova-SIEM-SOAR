@@ -1,0 +1,26 @@
+title: /etc/passwd Mass Exfiltration
+id: a1000006-0017-4000-8000-000000000017
+description: Detects mass exfiltration of /etc/passwd file indicating credential harvesting
+references:
+    - https://attack.mitre.org/techniques/T1003/008/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1003.008
+logsource:
+    category: file_access
+    product: linux
+detection:
+    selection:
+        FilePath: '/etc/passwd'
+        ProcessName|endswith:
+            - '/curl'
+            - '/wget'
+            - '/nc'
+            - '/scp'
+    condition: selection
+falsepositives:
+    - Scripted user enumeration
+    - Monitoring solutions
+level: medium

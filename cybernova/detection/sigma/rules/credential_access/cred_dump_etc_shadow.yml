@@ -1,0 +1,21 @@
+title: /etc/shadow File Access
+id: a1000006-0016-4000-8000-000000000016
+description: Detects access to /etc/shadow file containing hashed passwords
+references:
+    - https://attack.mitre.org/techniques/T1003/008/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1003.008
+logsource:
+    category: file_access
+    product: linux
+detection:
+    selection:
+        FilePath: '/etc/shadow'
+    condition: selection
+falsepositives:
+    - Legitimate system administration
+    - Password management tools
+level: high

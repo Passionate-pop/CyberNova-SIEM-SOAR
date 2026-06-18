@@ -1,0 +1,48 @@
+title: Database Table Drop or Truncation Detected
+id: a1000012-0015-4000-8000-000000000015
+description: Detects statements dropping or truncating database tables or deleting database files, a destructive technique used to destroy database-backed data.
+references:
+    - https://attack.mitre.org/techniques/T1485/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1485.002
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_sql:
+        CommandLine|contains|all:
+            - 'DROP TABLE'
+            - 'TRUNCATE TABLE'
+            - 'DROP DATABASE'
+            - 'DELETE FROM'
+            - 'TRUNCATE'
+            - 'sqlcmd'
+            - 'mysql'
+            - 'psql'
+            - 'sqlplus'
+    selection_mdf:
+        Image|endswith:
+            - '\sqlservr.exe'
+            - 'mysqld.exe'
+        TargetFilename|endswith:
+            - '.mdf'
+            - '.ldf'
+            - '.ndf'
+            - '.ibd'
+            - '.frm'
+            - '.sqlitedb'
+    selection_mongo:
+        CommandLine|contains:
+            - 'db.dropDatabase()'
+            - 'db.dropCollection()'
+            - 'db.collection.drop()'
+            - '--drop'
+    condition: 1 of selection_*
+falsepositives:
+    - Authorized database maintenance or schema migrations
+    - Development and testing activities
+    - Database cleanup jobs
+level: high

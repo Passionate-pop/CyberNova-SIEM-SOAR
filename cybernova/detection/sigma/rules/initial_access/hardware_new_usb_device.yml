@@ -1,0 +1,29 @@
+title: New USB Device Connected
+id: a1000001-0039-4000-8000-000000000039
+description: Detects connection of new USB devices not previously seen in the environment
+references:
+    - https://attack.mitre.org/techniques/T1200/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1200
+logsource:
+    category: endpoint
+    product: windows
+detection:
+    selection:
+        EventID:
+            - 20001
+            - 6416
+            - 4663
+        DeviceType|contains:
+            - USB
+        DeviceID|contains:
+            - VID_
+    condition: selection
+falsepositives:
+    - IT department deploying new hardware
+    - User replacing personal USB drive
+    - New peripheral device installation
+level: medium

@@ -1,0 +1,23 @@
+title: SSH Key-Based Authentication From New Host
+id: a1000008-0013-4000-8000-000000000013
+description: Detects successful SSH key-based authentication from a host that has not previously authenticated to the target system, which may indicate key exfiltration or lateral movement
+references:
+    - https://attack.mitre.org/techniques/T1021/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1021.004
+logsource:
+    category: authentication
+    product: linux
+detection:
+    selection:
+        EventID: 0
+        Method: 'publickey'
+        Result: 'Success'
+    condition: selection
+falsepositives:
+    - New employee workstations being provisioned
+    - Automated deployment pipelines rotating SSH keys
+level: medium

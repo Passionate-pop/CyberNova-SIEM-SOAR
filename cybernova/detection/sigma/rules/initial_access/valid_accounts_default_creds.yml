@@ -1,0 +1,36 @@
+title: Default or Common Credentials Used
+id: a1000001-0017-4000-8000-000000000017
+description: Detects authentication attempts using default or commonly known credentials
+references:
+    - https://attack.mitre.org/techniques/T1078/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1078
+logsource:
+    category: authentication
+    product: generic
+detection:
+    selection:
+        Username|contains:
+            - admin
+            - administrator
+            - root
+            - guest
+            - test
+            - default
+            - user
+            - backup
+        Password|contains:
+            - password
+            - admin
+            - 123456
+            - letmein
+            - root
+            - passw0rd
+    condition: selection
+falsepositives:
+    - New device initial setup
+    - Password reset activities
+level: high

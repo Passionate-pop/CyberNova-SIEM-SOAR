@@ -1,0 +1,25 @@
+title: Remote Access from Unknown IP Address
+id: a1000001-0024-4000-8000-000000000024
+description: Detects VPN or remote access connections from IPs not in the known corporate range
+references:
+    - https://attack.mitre.org/techniques/T1133/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1133
+logsource:
+    category: firewall
+    product: network
+detection:
+    selection:
+        Action: allow
+        Protocol: VPN
+        DestinationIP|contains: 
+            - .
+    condition: selection
+falsepositives:
+    - New remote employee connecting for first time
+    - Employee connecting from hotel or conference network
+    - Remote work from home IP rotation
+level: medium

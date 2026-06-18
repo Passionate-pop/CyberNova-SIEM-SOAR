@@ -1,0 +1,26 @@
+title: Sysmon Driver Unloaded
+id: a1000005-0006-4000-8000-000000000006
+description: Detects when the Sysmon driver (SysmonDrv) is unloaded, disabling system monitoring capabilities.
+references:
+    - https://attack.mitre.org/techniques/T1562/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1562
+    - attack.t1562.001
+logsource:
+    category: driver_load
+    product: windows
+detection:
+    selection:
+        EventID: 5061
+        DeviceName|contains: 'SysmonDrv'
+    method1_fltmc:
+        Image|endswith: '\fltmc.exe'
+        CommandLine|contains: 'unload'
+    condition: selection or method1_fltmc
+falsepositives:
+    - Legitimate Sysmon driver updates
+    - Unload during Sysmon troubleshooting
+level: critical

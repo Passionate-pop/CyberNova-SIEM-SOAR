@@ -1,0 +1,27 @@
+title: SSH Brute Force Detection
+id: a1000001-0023-4000-8000-000000000023
+description: Detects multiple failed SSH authentication attempts from a single IP
+references:
+    - https://attack.mitre.org/techniques/T1133/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1133
+logsource:
+    category: authentication
+    product: linux
+detection:
+    selection:
+        EventID:
+            - 22
+            - SSH_FAILED_AUTH
+        SourceIP|contains: 
+            - .
+        Count|gt: 15
+    condition: selection
+falsepositives:
+    - Misconfigured SSH clients
+    - Automation scripts with expired keys
+    - Network latency causing retries
+level: high

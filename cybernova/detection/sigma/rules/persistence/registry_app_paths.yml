@@ -1,0 +1,22 @@
+title: App Paths Registry Persistence
+id: a1000003-0010-4000-8000-000000000010
+description: Detects modification to App Paths registry key for application hijacking
+references:
+    - https://attack.mitre.org/techniques/T1547/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.001
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: 'Microsoft\Windows\CurrentVersion\App Paths'
+    condition: selection
+falsepositives:
+    - Legitimate application installations
+    - Software update operations
+level: medium

@@ -1,0 +1,30 @@
+title: Chmod u+s or g+s on Suspicious Binary
+id: a1000004-0002-4000-8000-000000000002
+description: Detects use of chmod with setuid or setgid flags applied to binaries not typically requiring elevated privileges
+references:
+    - https://attack.mitre.org/techniques/T1548/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1548.001
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        Image|endswith: '/chmod'
+        CommandLine|contains:
+            - 'u+s'
+            - 'g+s'
+        CommandLine|endswith:
+            - '/bin/sh'
+            - '/bin/bash'
+            - '/bin/zsh'
+            - '/bin/dash'
+            - '/bin/python'
+            - '/bin/perl'
+    condition: selection
+falsepositives:
+    - Legitimate system administration requiring shell access
+level: high

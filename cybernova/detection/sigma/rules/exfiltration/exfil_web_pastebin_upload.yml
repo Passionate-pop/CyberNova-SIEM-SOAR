@@ -1,0 +1,31 @@
+title: Data Upload to Pastebin or Paste Site
+id: a1000011-0012-4000-8000-000000000012
+description: Detects data being uploaded to known paste sites (pastebin, hastebin, etc.) which is a common data exfiltration technique
+references:
+    - https://attack.mitre.org/techniques/T1567/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1567
+    - attack.t1567.001
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Initiated: 'true'
+        DestinationPort: 443
+        DestinationHostname|contains:
+            - 'pastebin.com'
+            - 'hastebin.com'
+            - 'rentry.co'
+            - 'controlc.com'
+            - 'paste.ee'
+            - 'paste.md'
+        BytesSent|gte: 1024
+    condition: selection
+falsepositives:
+    - Developers sharing code snippets for collaboration
+    - IT staff sharing logs for troubleshooting
+level: medium

@@ -1,0 +1,24 @@
+title: NOPASSWD Entry in Sudoers File
+id: a1000004-0003-4000-8000-000000000003
+description: Detects modifications to sudoers files adding NOPASSWD entries allowing privilege escalation without authentication
+references:
+    - https://attack.mitre.org/techniques/T1548/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1548.001
+logsource:
+    category: file_event
+    product: linux
+detection:
+    selection:
+        TargetFilename|contains:
+            - '/etc/sudoers'
+            - '/etc/sudoers.d/'
+        CommandLine|contains: 'NOPASSWD'
+    condition: selection
+falsepositives:
+    - Authorized system administrator changes
+    - Configuration management tools (Ansible, Puppet, Chef)
+level: high

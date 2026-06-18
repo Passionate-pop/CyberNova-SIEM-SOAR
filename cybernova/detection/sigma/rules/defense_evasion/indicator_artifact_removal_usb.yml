@@ -1,0 +1,24 @@
+title: USB Artifact Removal
+id: a1000005-0046-4000-8000-000000000046
+description: Detects deletion of USB-related forensic artifacts including prefetch, amcache, and setupapi logs.
+references:
+    - https://attack.mitre.org/techniques/T1070/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1070
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains:
+            - '\Windows\Prefetch\'
+            - '\Windows\AppCompat\Programs\Amcache.hve'
+            - '\Windows\inf\setupapi.dev.log'
+            - '\Windows\System32\winevt\Logs\'
+    condition: selection
+falsepositives:
+    - Authorized forensic artifact cleanup or disk cleanup tools
+level: medium

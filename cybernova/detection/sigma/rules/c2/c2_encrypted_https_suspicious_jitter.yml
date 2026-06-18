@@ -1,0 +1,30 @@
+title: HTTPS Beaconing with Jitter
+id: a1000010-0028-4000-8000-000000000028
+description: Detects HTTPS connections to external hosts exhibiting beaconing behavior with timing jitter, characteristic of evasive C2 communications
+references:
+    - https://attack.mitre.org/techniques/T1573/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1573
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        dst_port: 443
+        protocol: TCP
+        src_ip: 10.0.0.0/8
+    selection_jitter:
+        timestamp|relative: 30m
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection | count(dst_ip) by src_ip > 5
+falsepositives:
+    - Cloud API polling with retry logic
+    - Update check mechanisms
+    - IoT device telemetry
+level: high

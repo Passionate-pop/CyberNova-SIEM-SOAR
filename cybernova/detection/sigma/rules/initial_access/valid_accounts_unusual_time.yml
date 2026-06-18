@@ -1,0 +1,26 @@
+title: Login Outside Business Hours
+id: a1000001-0015-4000-8000-000000000015
+description: Detects successful authentication events occurring outside normal business hours
+references:
+    - https://attack.mitre.org/techniques/T1078/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1078
+logsource:
+    category: authentication
+    product: windows
+detection:
+    selection:
+        EventID: 4624
+        LogonTime|between:
+            - '22:00:00'
+            - '06:00:00'
+    condition: selection
+falsepositives:
+    - Night shift employees
+    - Automated maintenance tasks
+    - Global team members in different time zones
+    - On-call personnel
+level: low

@@ -1,0 +1,28 @@
+title: Port Hopping Behavior from Single Source
+id: a1000010-0038-4000-8000-000000000038
+description: Detects connections from a single internal host to multiple different ports on the same external IP within a short timeframe, indicative of C2 port hopping
+references:
+    - https://attack.mitre.org/techniques/T1095/
+    - https://attack.mitre.org/techniques/T1095/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1095.003
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        src_ip: 10.0.0.0/8
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    timeframe: 60s
+    condition: selection | count(dst_port) by src_ip, dst_ip > 10
+falsepositives:
+    - Port scanning activity
+    - Application load testing
+    - Service discovery by network tools
+level: high

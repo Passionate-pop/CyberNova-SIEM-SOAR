@@ -1,0 +1,29 @@
+title: HTTP Cookie with Encoded or Encrypted Data
+id: a1000010-0012-4000-8000-000000000012
+description: Detects HTTP requests with oversized or suspicious cookie values containing encoded or encrypted data, indicative of C2 data exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1071/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.001
+logsource:
+    category: proxy
+    product: windows
+detection:
+    selection_cookie_length:
+        cookie_length|gte: 512
+    selection_cookie_encoding:
+        cookie|re: '(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]==|[A-Za-z0-9+/]{3}=)?'
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection_cookie_length and selection_cookie_encoding and selection_external
+falsepositives:
+    - Large session cookies from web applications
+    - Single Sign-On tokens
+    - OAuth state parameters
+level: high

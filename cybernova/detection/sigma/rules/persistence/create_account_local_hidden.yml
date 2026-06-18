@@ -1,0 +1,28 @@
+title: Hidden Local Account Creation
+id: a1000003-0043-4000-8000-000000000043
+description: Detects creation of hidden local user accounts with trailing dollar sign
+references:
+    - https://attack.mitre.org/techniques/T1136/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1136
+    - attack.t1136.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - '\net.exe'
+            - '\net1.exe'
+        CommandLine|contains:
+            - 'user'
+            - '$'
+            - '/add'
+    condition: selection
+falsepositives:
+    - Legitimate service account creation by IT
+    - Automated deployment scripts
+level: critical

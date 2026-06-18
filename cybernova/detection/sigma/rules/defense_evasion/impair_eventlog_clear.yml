@@ -1,0 +1,23 @@
+title: Windows Event Log Cleared
+id: a1000005-0009-4000-8000-000000000009
+description: Detects when Windows event logs are cleared, generating EventID 1102 or 517, indicating an attempt to cover tracks.
+references:
+    - https://attack.mitre.org/techniques/T1070/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1070
+    - attack.t1070.001
+logsource:
+    category: security
+    product: windows
+detection:
+    selection:
+        EventID:
+            - 1102
+            - 517
+    condition: selection
+falsepositives:
+    - Authorized log clearing following incident response procedures
+level: high

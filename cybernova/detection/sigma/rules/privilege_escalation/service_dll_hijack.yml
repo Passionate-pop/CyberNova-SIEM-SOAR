@@ -1,0 +1,26 @@
+title: Service DLL Hijacking Attempt
+id: a1000004-0021-4000-8000-000000000021
+description: Detects DLL hijacking attempts targeting Windows services where DLLs are placed in service directories for privilege escalation
+references:
+    - https://attack.mitre.org/techniques/T1068/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1068
+logsource:
+    category: image_load
+    product: windows
+detection:
+    selection:
+        Image|contains:
+            - '\System32\'
+            - '\Windows\'
+        ImageLoaded|contains:
+            - '\Temp\'
+            - '\Users\Public\'
+            - '\AppData\'
+    condition: selection
+falsepositives:
+    - Legitimate DLL sideloading by some applications
+level: medium

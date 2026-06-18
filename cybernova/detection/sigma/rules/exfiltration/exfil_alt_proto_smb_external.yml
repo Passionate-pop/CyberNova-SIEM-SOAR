@@ -1,0 +1,28 @@
+title: SMB/CIFS Data Copy to External Share
+id: a1000011-0006-4000-8000-000000000006
+description: Detects SMB connections to external IP addresses which may indicate data exfiltration to an external file share
+references:
+    - https://attack.mitre.org/techniques/T1048/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1048
+    - attack.t1048.003
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Initiated: 'true'
+        DestinationPort:
+            - 445
+            - 139
+        DestinationIP|is_external: 'true'
+        BytesSent|gte: 1048576
+    condition: selection
+falsepositives:
+    - Legitimate file sharing with partner organizations
+    - DFS replication to remote sites
+    - Print services over SMB
+level: high

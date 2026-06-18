@@ -1,0 +1,31 @@
+title: Unauthorized Hardware Device Detected
+id: a1000001-0040-4000-8000-000000000040
+description: Detects connection of hardware devices not on the approved hardware list
+references:
+    - https://attack.mitre.org/techniques/T1200/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1200
+logsource:
+    category: endpoint
+    product: windows
+detection:
+    selection:
+        EventID: 6416
+        DeviceDescription|contains:
+            - Keyboard
+            - Mouse
+            - HID
+            - Network Adapter
+            - Bluetooth
+            - Wireless
+        DeviceID|notcontains:
+            - APPROVED
+    condition: selection
+falsepositives:
+    - New approved hardware not yet added to whitelist
+    - Docking station peripherals
+    - Built-in laptop devices
+level: medium

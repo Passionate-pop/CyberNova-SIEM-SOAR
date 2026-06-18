@@ -1,0 +1,23 @@
+title: LSASS Minidump via WinAPI
+id: a1000006-0004-4000-8000-000000000004
+description: Detects programmatic LSASS minidump creation via MinidumpWriteDump WinAPI call
+references:
+    - https://attack.mitre.org/techniques/T1003/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1003.001
+logsource:
+    category: process_access
+    product: windows
+detection:
+    selection:
+        TargetImage|endswith: '\lsass.exe'
+        GrantedAccess: '0x1fffff'
+        CallTrace|contains: 'dbghelp.dll'
+    condition: selection
+falsepositives:
+    - Antivirus or EDR scanning
+    - Debugging tools
+level: high

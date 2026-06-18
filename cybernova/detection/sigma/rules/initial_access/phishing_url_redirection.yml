@@ -1,0 +1,31 @@
+title: Suspicious URL Redirection Detected
+id: a1000001-0030-4000-8000-000000000030
+description: Detects suspicious URL redirection chains potentially used for phishing
+references:
+    - https://attack.mitre.org/techniques/T1566/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1566
+logsource:
+    category: proxy
+    product: network
+detection:
+    selection:
+        sc-status: 302
+        cs-uri-query|contains:
+            - redirect=
+            - url=
+            - next=
+            - return=
+            - return_to=
+            - returnUrl=
+            - return_url=
+            - destination=
+    condition: selection
+falsepositives:
+    - Legitimate URL shorteners
+    - Single sign-on redirection flows
+    - E-commerce redirect after purchase
+level: low

@@ -1,0 +1,25 @@
+title: Browser Extension Persistence
+id: a1000003-0022-4000-8000-000000000022
+description: Detects suspicious browser extension installation for persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.001
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains:
+            - '\Extensions\'
+            - 'AppData\Local\Google\Chrome\User Data\Default\Extensions'
+            - 'AppData\Roaming\Mozilla\Firefox\Profiles'
+    condition: selection
+falsepositives:
+    - User intentionally installing browser extensions
+    - Enterprise browser policy deployment
+level: low

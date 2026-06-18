@@ -1,0 +1,25 @@
+title: Cloud Console Login from New IP Address
+id: a1000001-0018-4000-8000-000000000018
+description: Detects cloud console access from IP addresses not previously associated with the account
+references:
+    - https://attack.mitre.org/techniques/T1078/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1078
+logsource:
+    category: authentication
+    product: cloud
+detection:
+    selection:
+        EventName: ConsoleLogin
+        SourceIPAddress|contains: 
+            - Unknown
+        UserIdentityType: IAMUser
+    condition: selection
+falsepositives:
+    - New employee first login
+    - User accessing from new location
+    - ISP IP pool changes
+level: medium

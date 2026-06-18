@@ -1,0 +1,23 @@
+title: LNK File Security Zone Checking Disabled
+id: a1000005-0060-4000-8000-000000000060
+description: Detects when LNK file security zone checking is disabled via registry, bypassing Mark of the Web protections.
+references:
+    - https://attack.mitre.org/techniques/T1112/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1112
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|endswith:
+            - '\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\LinkResolveIgnoreLinkInfo'
+            - '\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\NoInternetOpenWith'
+        Details: '1'
+    condition: selection
+falsepositives:
+    - Authorized configuration for legacy application compatibility
+level: medium

@@ -1,0 +1,25 @@
+title: macOS Login Items Plist Modification
+id: a1000003-0019-4000-8000-000000000019
+description: Detects modification to login items plist files for macOS persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/015/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.015
+logsource:
+    category: file_event
+    product: macos
+detection:
+    selection:
+        TargetFilename|contains:
+            - '/Library/StartupItems/'
+            - '/Library/LaunchAgents/'
+            - 'com.apple.loginitems.plist'
+    condition: selection
+falsepositives:
+    - User adding legitimate login items
+    - Software installer adding startup entries
+level: medium

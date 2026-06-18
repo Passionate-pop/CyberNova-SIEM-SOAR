@@ -1,0 +1,27 @@
+title: SAM Copy via Volume Shadow Copy
+id: a1000006-0008-4000-8000-000000000008
+description: Detects SAM, SYSTEM, SECURITY file copy from volume shadow copy
+references:
+    - https://attack.mitre.org/techniques/T1003/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1003.002
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'vssadmin'
+            - 'shadow'
+        CommandLine|contains:
+            - 'SAM'
+            - 'SYSTEM'
+            - 'SECURITY'
+    condition: selection
+falsepositives:
+    - Administrative backup tasks
+    - Forensic tools
+level: high

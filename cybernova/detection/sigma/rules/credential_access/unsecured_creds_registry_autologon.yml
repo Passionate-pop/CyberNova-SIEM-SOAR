@@ -1,0 +1,24 @@
+title: Autologon Default Password Registry
+id: a1000006-0025-4000-8000-000000000025
+description: Detects reading of autologon default credentials from registry
+references:
+    - https://attack.mitre.org/techniques/T1552/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1552.002
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\DefaultPassword'
+            - '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\DefaultUserName'
+            - '\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\AutoAdminLogon'
+    condition: selection
+falsepositives:
+    - Legitimate autologon configuration
+    - IT support tools
+level: high

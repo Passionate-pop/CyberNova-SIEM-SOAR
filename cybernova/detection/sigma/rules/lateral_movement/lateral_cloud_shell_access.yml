@@ -1,0 +1,27 @@
+title: Cloud Shell Access Used From Unusual Source
+id: a1000008-0017-4000-8000-000000000017
+description: Detects cloud shell services (AWS Systems Manager SSM, Google Cloud IAP TCP forwarding) being used from source IPs or accounts not typically authorized for remote administration
+references:
+    - https://attack.mitre.org/techniques/T1021/007/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1021.007
+logsource:
+    service: cloud_audit
+    product: aws
+detection:
+    selection_ssm:
+        eventSource: 'ssm.amazonaws.com'
+        eventName:
+            - 'StartSession'
+            - 'SendCommand'
+    selection_iap:
+        eventSource: 'iap.googleapis.com'
+        eventName: 'tunnel.connect'
+    condition: 1 of selection_*
+falsepositives:
+    - Authorized administrators using cloud shell for legitimate maintenance
+    - Automated incident response playbooks
+level: high

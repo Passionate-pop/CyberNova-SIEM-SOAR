@@ -1,0 +1,32 @@
+title: DCOM ShellWindows ShellBrowserWindow Lateral Movement
+id: a1000008-0011-4000-8000-000000000011
+description: Detects lateral movement via DCOM using ShellWindows or ShellBrowserWindow COM objects, which enable remote code execution through the Windows Shell interface
+references:
+    - https://attack.mitre.org/techniques/T1021/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1021.003
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_powershell:
+        Image|endswith:
+            - \powershell.exe
+            - \pwsh.exe
+        CommandLine|contains:
+            - 'ShellWindows'
+            - 'ShellBrowserWindow'
+            - '{9BA05972-F6A8-11CF-A442-00A0C90A8F39}'
+    selection_cscript:
+        Image|endswith: \cscript.exe
+        CommandLine|contains:
+            - 'ShellWindows'
+            - 'ShellBrowserWindow'
+    condition: 1 of selection_*
+falsepositives:
+    - Legitimate automation scripts using Shell COM objects
+    - Enterprise deployment software
+level: high

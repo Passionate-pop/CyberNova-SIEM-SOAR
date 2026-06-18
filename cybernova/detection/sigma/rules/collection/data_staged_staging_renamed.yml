@@ -1,0 +1,40 @@
+title: Files Renamed with Staging-Related Extensions
+id: a1000009-0019-4000-8000-000000000019
+description: Detects file rename operations that append staging-related extensions such as .bak, .old, .tmp to sensitive data files
+references:
+    - https://attack.mitre.org/techniques/T1074/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1074
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_event:
+        EventID:
+            - 2
+            - 11
+    selection_original_ext:
+        TargetFilename|endswith:
+            - '.docx.bak'
+            - '.xlsx.bak'
+            - '.pptx.bak'
+            - '.pdf.bak'
+            - '.docx.old'
+            - '.xlsx.old'
+            - '.pdf.old'
+            - '.docx.tmp'
+            - '.xlsx.tmp'
+            - '.pdf.tmp'
+    selection_destination:
+        TargetFilename|contains:
+            - '.docx'
+            - '.xlsx'
+            - '.pdf'
+    condition: selection_event and (selection_original_ext or selection_destination)
+falsepositives:
+    - Office applications creating auto-recovery copies
+    - Version control systems creating backup files
+level: medium

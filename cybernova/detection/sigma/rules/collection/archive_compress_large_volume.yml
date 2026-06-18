@@ -1,0 +1,26 @@
+title: Large Volume Archive Compression Activity
+id: a1000009-0005-4000-8000-000000000005
+description: Detects archiving of a large number of files or large total data volume indicative of bulk collection
+references:
+    - https://attack.mitre.org/techniques/T1560/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1560
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|endswith:
+            - '.zip'
+            - '.rar'
+            - '.7z'
+            - '.tar.gz'
+        FileSize|gte: 500000000
+    condition: selection
+falsepositives:
+    - Large legitimate database or media backups
+    - System image creation tools
+level: medium

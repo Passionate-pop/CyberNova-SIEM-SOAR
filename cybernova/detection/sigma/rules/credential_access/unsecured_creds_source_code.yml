@@ -1,0 +1,28 @@
+title: Credentials in Source Code
+id: a1000006-0020-4000-8000-000000000020
+description: Detects discovery of credentials in source code files or git repositories
+references:
+    - https://attack.mitre.org/techniques/T1552/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1552.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'git'
+            - 'grep'
+        CommandLine|contains:
+            - 'password'
+            - 'secret'
+            - 'connectionstring'
+            - 'apikey'
+    condition: selection
+falsepositives:
+    - Legitimate code review
+    - Security scanning tools
+level: medium

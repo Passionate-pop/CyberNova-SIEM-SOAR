@@ -1,0 +1,44 @@
+title: POP3 Access from Non-Email Client
+id: a1000010-0018-4000-8000-000000000018
+description: Detects POP3 connections from processes or user agents not typically associated with email clients, suggesting C2 data retrieval
+references:
+    - https://attack.mitre.org/techniques/T1071/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.003
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_pop3:
+        dst_port:
+            - 110
+            - 995
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    selection_non_standard_agent:
+        user_agent|contains:
+            - 'curl'
+            - 'Wget'
+            - 'Python'
+            - 'Go-http'
+            - 'PowerShell'
+            - 'Java'
+            - 'libwww'
+            - 'LWP'
+    selection_unusual_command:
+        pop3_command|contains:
+            - 'RETR'
+            - 'TOP'
+            - 'UIDL'
+    condition: selection_pop3 and selection_external and (selection_non_standard_agent or selection_unusual_command)
+falsepositives:
+    - Email checking scripts
+    - Automated monitoring tools
+    - Legacy system integrations
+level: medium

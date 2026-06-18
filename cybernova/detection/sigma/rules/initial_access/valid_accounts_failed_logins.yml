@@ -1,0 +1,26 @@
+title: Multiple Failed Logins Followed by Success
+id: a1000001-0013-4000-8000-000000000013
+description: Detects brute force patterns where multiple failed logins precede a successful login
+references:
+    - https://attack.mitre.org/techniques/T1078/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1078
+logsource:
+    category: authentication
+    product: windows
+detection:
+    selection:
+        EventID:
+            - 4625
+            - 4648
+        Status: 0xC000006A
+        Count|gt: 10
+    condition: selection
+falsepositives:
+    - User mistyping password
+    - Legacy application using cached credentials
+    - Password expiration awareness
+level: medium

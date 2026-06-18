@@ -1,0 +1,31 @@
+title: Macro-Enabled Document Opened from Email
+id: a1000001-0027-4000-8000-000000000027
+description: Detects opening of macro-enabled documents delivered via email
+references:
+    - https://attack.mitre.org/techniques/T1566/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1566
+logsource:
+    category: endpoint
+    product: windows
+detection:
+    selection:
+        EventID: 1
+        Image|endswith:
+            - \WINWORD.EXE
+            - \EXCEL.EXE
+            - \POWERPNT.EXE
+        CommandLine|contains:
+            - /automation
+            - /embedd
+            - /q
+        ParentImage|endswith:
+            - \OUTLOOK.EXE
+    condition: selection
+falsepositives:
+    - User intentionally enabling macros for legitimate documents
+    - Business workflows requiring macros
+level: high

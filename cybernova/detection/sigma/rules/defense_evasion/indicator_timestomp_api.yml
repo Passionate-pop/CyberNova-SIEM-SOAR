@@ -1,0 +1,22 @@
+title: Timestomping via SetFileTime or NtSetInformationFile
+id: a1000005-0040-4000-8000-000000000040
+description: Detects when file timestamps are modified using API calls like SetFileTime or NtSetInformationFile to hide malicious files.
+references:
+    - https://attack.mitre.org/techniques/T1070/006/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1070
+    - attack.t1070.006
+logsource:
+    category: process_access
+    product: windows
+detection:
+    selection:
+        EventID: 4656
+        AccessMask|contains: 'WRITE_ATTRIBUTES'
+    condition: selection
+falsepositives:
+    - Legitimate file attribute modifications by backup software
+level: high

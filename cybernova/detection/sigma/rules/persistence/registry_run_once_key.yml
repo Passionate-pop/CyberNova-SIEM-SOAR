@@ -1,0 +1,22 @@
+title: Registry RunOnce Key Modification
+id: a1000003-0003-4000-8000-000000000003
+description: Detects modification to RunOnce registry keys often used for one-time persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.001
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: 'RunOnce'
+    condition: selection
+falsepositives:
+    - Legitimate software installer cleanup routines
+    - Windows update post-reboot tasks
+level: low

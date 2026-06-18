@@ -1,0 +1,29 @@
+title: PowerShell Encoded Command Execution
+id: a1000002-0001-4000-8000-000000000001
+description: Detects PowerShell execution with -EncodedCommand or -EncodedArguments flags, commonly used to hide malicious command logic
+references:
+    - https://attack.mitre.org/techniques/T1059/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.execution
+    - attack.t1059.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - \powershell.exe
+            - \pwsh.exe
+        CommandLine|contains:
+            - ' -EncodedCommand '
+            - ' -EncodedArguments '
+            - ' -e '
+            - ' -en '
+            - ' -enc '
+    condition: selection
+falsepositives:
+    - Legitimate administrative scripts using encoded commands
+    - Software installers that leverage PowerShell
+level: medium

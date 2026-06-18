@@ -1,0 +1,25 @@
+title: Shortcut Modification in Startup Folder
+id: a1000003-0016-4000-8000-000000000016
+description: Detects LNK file modification in user startup folders for persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/009/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.009
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains:
+            - '\Microsoft\Windows\Start Menu\Programs\Startup\'
+            - '\Microsoft\Windows\Start Menu\Programs\StartUp\'
+        TargetFilename|endswith: '.lnk'
+    condition: selection
+falsepositives:
+    - User manually organizing shortcuts
+    - Legitimate application adding shortcuts
+level: medium

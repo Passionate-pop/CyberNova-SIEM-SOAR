@@ -1,0 +1,44 @@
+title: Boot Configuration Modification via BCDEdit
+id: a1000012-0021-4000-8000-000000000021
+description: Detects modifications to boot configuration using bcdedit.exe, specifically changes that disable recovery features, ignore boot failures, or alter Windows boot manager behavior.
+references:
+    - https://attack.mitre.org/techniques/T1490/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1490.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_recovery:
+        Image|endswith: '\bcdedit.exe'
+        CommandLine|contains|all:
+            - '/set'
+            - 'recoveryenabled'
+            - 'no'
+    selection_bootstatus:
+        Image|endswith: '\bcdedit.exe'
+        CommandLine|contains|all:
+            - '/set'
+            - 'bootstatuspolicy'
+            - 'ignore'
+    selection_ems:
+        Image|endswith: '\bcdedit.exe'
+        CommandLine|contains|all:
+            - '/set'
+            - 'ems'
+            - 'off'
+    selection_bootmenu:
+        Image|endswith: '\bcdedit.exe'
+        CommandLine|contains|all:
+            - '/set'
+            - 'bootmenupolicy'
+            - 'legacy'
+    condition: 1 of selection_*
+falsepositives:
+    - System administrators configuring boot settings
+    - OS deployment automation scripts
+    - Corporate imaging and provisioning tools
+level: high

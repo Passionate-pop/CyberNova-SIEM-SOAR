@@ -1,0 +1,25 @@
+title: CloudTrail or Audit Logging Disabled
+id: a1000005-0020-4000-8000-000000000020
+description: Detects when CloudTrail or cloud audit logging is disabled, preventing visibility into API calls and management actions.
+references:
+    - https://attack.mitre.org/techniques/T1562/008/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1562
+    - attack.t1562.008
+logsource:
+    service: cloudtrail
+    product: aws
+detection:
+    selection:
+        eventName:
+            - 'StopLogging'
+            - 'DeleteTrail'
+            - 'UpdateTrail'
+        eventSource: 'cloudtrail.amazonaws.com'
+    condition: selection
+falsepositives:
+    - Authorized disabling of logging during maintenance windows
+level: critical

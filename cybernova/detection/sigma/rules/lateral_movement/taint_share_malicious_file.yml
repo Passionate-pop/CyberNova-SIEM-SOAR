@@ -1,0 +1,33 @@
+title: Malicious File Dropped On Network Share
+id: a1000008-0019-4000-8000-000000000019
+description: Detects executable files, scripts, or other potentially malicious content being created or written to network shares, which may indicate adversaries tainting shared content for lateral movement
+references:
+    - https://attack.mitre.org/techniques/T1080/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1080.001
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_share:
+        TargetFilename|contains:
+            - '\\*\*'
+    selection_extensions:
+        TargetFilename|endswith:
+            - '.exe'
+            - '.dll'
+            - '.ps1'
+            - '.vbs'
+            - '.bat'
+            - '.cmd'
+            - '.js'
+            - '.jar'
+            - '.msi'
+    condition: selection_share and selection_extensions
+falsepositives:
+    - Legitimate software deployment via network shares
+    - IT administrators pushing approved software updates
+level: high

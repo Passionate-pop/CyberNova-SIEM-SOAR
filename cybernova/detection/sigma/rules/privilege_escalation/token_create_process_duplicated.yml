@@ -1,0 +1,21 @@
+title: CreateProcessAsUser with Duplicated Token
+id: a1000004-0031-4000-8000-000000000031
+description: Detects creation of processes via CreateProcessAsUser using duplicated tokens from privileged processes
+references:
+    - https://attack.mitre.org/techniques/T1134/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1134.002
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\svchost.exe'
+        CommandLine|contains: 'CreateProcessAsUser'
+    condition: selection
+falsepositives:
+    - Legitimate service host process creation
+level: medium

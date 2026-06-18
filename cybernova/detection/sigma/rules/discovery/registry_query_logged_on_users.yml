@@ -1,0 +1,24 @@
+title: Registry Query For Logged-On Users
+id: a1000007-0034-4000-8000-000000000034
+description: Detects registry queries for logged-on user session information
+references:
+    - https://attack.mitre.org/techniques/T1012/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.discovery
+    - attack.t1012
+logsource:
+    category: registry_query
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - 'SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations'
+            - 'SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI\SessionData'
+            - 'Volatile Environment'
+    condition: selection
+falsepositives:
+    - Session management tools
+    - User activity monitoring
+level: medium

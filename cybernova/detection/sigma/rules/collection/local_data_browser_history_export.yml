@@ -1,0 +1,40 @@
+title: Browser History and Bookmark Data Export
+id: a1000009-0011-4000-8000-000000000011
+description: Detects access to browser history, bookmarks, and saved password databases from Chrome, Firefox, Edge
+references:
+    - https://attack.mitre.org/techniques/T1005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1005
+logsource:
+    category: file_access
+    product: windows
+detection:
+    selection_chrome:
+        TargetFilename|contains:
+            - '\Google\Chrome\User Data\Default\History'
+            - '\Google\Chrome\User Data\Default\Bookmarks'
+            - '\Google\Chrome\User Data\Default\Login Data'
+            - '\Google\Chrome\User Data\Default\Cookies'
+    selection_firefox:
+        TargetFilename|contains:
+            - '\Mozilla\Firefox\Profiles\'
+            - 'places.sqlite'
+            - 'logins.json'
+            - 'key4.db'
+    selection_edge:
+        TargetFilename|contains:
+            - '\Microsoft\Edge\User Data\Default\History'
+            - '\Microsoft\Edge\User Data\Default\Bookmarks'
+    selection_export:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\cmd.exe'
+            - '\python.exe'
+    condition: (1 of selection_*) and selection_export
+falsepositives:
+    - Browser extension operations
+    - Forensic analysis tools
+level: high

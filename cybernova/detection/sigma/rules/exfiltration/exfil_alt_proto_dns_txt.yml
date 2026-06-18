@@ -1,0 +1,23 @@
+title: DNS TXT Record Data Exfiltration
+id: a1000011-0001-4000-8000-000000000001
+description: Detects unusually large or numerous DNS TXT queries which may indicate data exfiltration via DNS tunneling
+references:
+    - https://attack.mitre.org/techniques/T1048/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1048
+    - attack.t1048.001
+logsource:
+    category: dns
+    product: windows
+detection:
+    selection:
+        QueryType: 'TXT'
+        QueryLength|gte: 255
+    condition: selection
+falsepositives:
+    - Legitimate DNS TXT lookups for SPF/DKIM/DMARC verification
+    - CDN or load balancer health checks
+level: medium

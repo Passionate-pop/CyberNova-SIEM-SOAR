@@ -1,0 +1,37 @@
+title: Git or Code Repository Clone Detection
+id: a1000009-0015-4000-8000-000000000015
+description: Detects cloning of git repositories which may indicate collection of source code or proprietary intellectual property
+references:
+    - https://attack.mitre.org/techniques/T1005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1005
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_git_clone:
+        Image|endswith: '\git.exe'
+        CommandLine|contains:
+            - 'clone'
+            - 'mirror'
+    selection_git_flags:
+        CommandLine|contains:
+            - '--bare'
+            - '--mirror'
+            - '--depth'
+    selection_svn:
+        Image|endswith: '\svn.exe'
+        CommandLine|contains:
+            - 'checkout'
+            - 'export'
+    selection_hg:
+        Image|endswith: '\hg.exe'
+        CommandLine|contains: 'clone'
+    condition: 1 of selection_*
+falsepositives:
+    - Developer cloning repositories for legitimate work
+    - CI/CD pipeline repository mirroring
+level: low

@@ -1,0 +1,41 @@
+title: Database Dump and Export Tool Execution
+id: a1000009-0013-4000-8000-000000000013
+description: Detects execution of database export utilities such as mysqldump, pg_dump, mongoexport, sqlcmd for potential data theft
+references:
+    - https://attack.mitre.org/techniques/T1005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1005
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_mysql:
+        Image|endswith: '\mysqldump.exe'
+        CommandLine|contains:
+            - '--all-databases'
+            - '--databases'
+    selection_pgsql:
+        Image|endswith: '\pg_dump.exe'
+        CommandLine|contains:
+            - '-f'
+            - '--file'
+    selection_mongo:
+        Image|endswith: '\mongoexport.exe'
+        CommandLine|contains:
+            - '--collection'
+            - '--db'
+            - '--out'
+    selection_mssql:
+        Image|endswith: '\sqlcmd.exe'
+        CommandLine|contains:
+            - '-Q'
+            - 'BACKUP DATABASE'
+            - 'SELECT * FROM'
+    condition: 1 of selection_*
+falsepositives:
+    - Scheduled database backup operations
+    - Database administration and maintenance tasks
+level: high

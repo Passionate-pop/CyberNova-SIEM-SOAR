@@ -1,0 +1,29 @@
+title: Long URL Path with Random Characters
+id: a1000010-0007-4000-8000-000000000007
+description: Detects HTTP requests with abnormally long URLs containing random character sequences, often used by C2 for data exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1071/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.001
+logsource:
+    category: proxy
+    product: windows
+detection:
+    selection_length:
+        url_length|gte: 500
+    selection_random:
+        url|re: '\/[a-z0-9]{30,}(?:\/[a-z0-9]{30,})+'
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection_length and selection_random and selection_external
+falsepositives:
+    - Long query strings in analytics tracking
+    - CMS rewrite rules with encoded parameters
+    - CDN cache-busting URLs
+level: high

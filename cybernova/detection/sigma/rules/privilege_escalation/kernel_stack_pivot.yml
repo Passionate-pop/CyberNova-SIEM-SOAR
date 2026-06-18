@@ -1,0 +1,24 @@
+title: Stack Pivot / ROP Chain Detection
+id: a1000004-0018-4000-8000-000000000018
+description: Detects characteristics of stack pivoting or ROP chain execution commonly used in kernel exploit payloads
+references:
+    - https://attack.mitre.org/techniques/T1068/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1068
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        CommandLine|contains:
+            - 'rop'
+            - 'stack_pivot'
+            - 'ret2dir'
+            - 'ret2usr'
+    condition: selection
+falsepositives:
+    - Security research and exploit development
+level: critical

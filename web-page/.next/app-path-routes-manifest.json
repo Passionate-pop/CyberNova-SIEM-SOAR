@@ -1,0 +1,20 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/page": "/",
+  "/blog/page": "/blog",
+  "/changelog/page": "/changelog",
+  "/about/page": "/about",
+  "/careers/page": "/careers",
+  "/contact/page": "/contact",
+  "/features/page": "/features",
+  "/docs/page": "/docs",
+  "/login/page": "/login",
+  "/api/page": "/api",
+  "/pricing/page": "/pricing",
+  "/platform/page": "/platform",
+  "/register/page": "/register",
+  "/security/page": "/security",
+  "/privacy/page": "/privacy",
+  "/status/page": "/status",
+  "/terms/page": "/terms"
+}

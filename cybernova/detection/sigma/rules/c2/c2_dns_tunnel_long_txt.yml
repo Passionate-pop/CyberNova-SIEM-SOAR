@@ -1,0 +1,28 @@
+title: DNS TXT Query with Long Response Indicates Tunneling
+id: a1000010-0019-4000-8000-000000000019
+description: Detects DNS TXT record queries with unusually long response sizes, a common indicator of DNS tunneling for C2 communication
+references:
+    - https://attack.mitre.org/techniques/T1071/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.004
+logsource:
+    category: dns
+    product: windows
+detection:
+    selection_txt:
+        dns_record_type: TXT
+        dns_response_size|gte: 512
+    selection_external:
+        dns_query|not_endswith:
+            - '.local'
+            - '.lan'
+            - '.internal'
+    condition: selection_txt and selection_external
+falsepositives:
+    - SPF/DKIM/DMARC verification records
+    - Domain verification tokens
+    - Large DNS-based service discovery
+level: medium

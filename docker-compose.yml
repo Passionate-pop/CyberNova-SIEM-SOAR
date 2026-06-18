@@ -1,0 +1,684 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# CyberNova — Unified Docker Stack (ENTERPRISE-READY)
+# ═════════════════════════════════════════════════════════════════════════════
+# Run: docker compose up -d
+#
+# All services in one file — from core (postgres, redis, backend, frontend)
+# to monitoring (prometheus, alertmanager, grafana) and pipeline workers.
+#
+# For production, create a .env file with:
+#   JWT_SECRET=<random 64+ char string>
+#   SECRET_KEY=<random 64+ char string, different from JWT_SECRET>
+#   ADMIN_PASSWORD=<admin password>
+#   AGENT_PASSWORD=<agent authentication password>
+#   POSTGRES_PASSWORD=<random password>
+#   REDIS_PASSWORD=<random password>
+#   GRAFANA_PASSWORD=<strong random password>
+#   CORS_ORIGINS=https://your-domain.com
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ── Secrets (optional — fall back to env vars for dev) ─────────────────────
+secrets:
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  admin_password:
+    file: ./secrets/admin_password.txt
+  agent_password:
+    file: ./secrets/agent_password.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+  smtp_password:
+    file: ./secrets/smtp_password.txt
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    shm_size: 32mb
+    container_name: cybernova-postgres
+    command: >
+      -c max_connections=${POSTGRES_MAX_CONNECTIONS:-100}
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
+      -c maintenance_work_mem=32MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=2MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=100
+      -c work_mem=4MB
+      -c min_wal_size=64MB
+      -c max_wal_size=256MB
+      -c max_worker_processes=4
+      -c max_parallel_workers_per_gather=2
+      -c max_parallel_workers=4
+    environment:
+      POSTGRES_DB: cybernova
+      POSTGRES_USER: cybernova
+      POSTGRES_PASSWORD: postgres-pass-123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # ⚠️ Port exposed for dev/debug only — comment out in production
+    ports:
+      - "5432:5432"
+    networks:
+      - cybernova-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cybernova"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    user: postgres
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "384m"
+        reservations:
+          cpus: "0.25"
+          memory: "128m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Redis Cache
+  # ─────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: cybernova-redis
+    command:
+      - sh
+      - -c
+      - PASSWORD="$(tr -d '\r\n' < /run/secrets/redis_password)" && exec redis-server --requirepass "$$PASSWORD" --appendonly yes --appendfsync everysec --maxmemory "${REDIS_MAXMEMORY:-512mb}" --maxmemory-policy "${REDIS_MAXMEMORY_POLICY:-allkeys-lru}" --lfu-decay-time 1 --lfu-log-factor 10
+    volumes:
+      - redis_data:/data
+    # ⚠️ Port exposed for dev/debug only — comment out in production
+    ports:
+      - "6379:6379"
+    networks:
+      - cybernova-network
+    secrets:
+      - redis_password
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -a \"$(tr -d '\r\n' < /run/secrets/redis_password)\" ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "256m"
+        reservations:
+          cpus: "0.05"
+          memory: "64m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Backend API
+  # ─────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: cybernova-backend
+    tmpfs:
+      - /tmp
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    privileged: false
+    volumes:
+      - ./cybernova:/app/cybernova:ro
+      - ./scripts:/app/scripts:ro
+      - ./data/rag_store:/data/rag_store
+    environment:
+      RAG_PERSIST_DIR: /app/data/rag_store
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CYBERNOVA_SOAR_ENABLED: "true"
+      CYBERNOVA_SOAR_ACTIONS: all
+      SOAR_AUTO_APPROVE_TIMEOUT: "15"
+      RUN_ALL_SERVICES: "false"
+      START_LOCAL_AGENT: "false"
+
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:3000,http://localhost:8080,http://localhost:8888,http://localhost:5173,http://localhost:443,https://localhost,http://127.0.0.1}
+
+      SYSLOG_ENABLED: "true"
+      SYSLOG_UDP_PORT: "5140"
+      SYSLOG_TCP_PORT: "5141"
+
+      # Redis host must be the Docker service name, not localhost
+      REDIS_HOST: redis
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+
+      # Only 1 uvicorn worker to avoid duplicate lifespan / pipeline startup
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
+
+      # Disable ALL background services in backend — main.py lifespan handles startup,
+      # and pipeline-worker service handles dedicated worker processing.
+      START_ALL_WORKERS: "false"
+      START_WORKER_PROCESSOR: "false"
+      START_SYSLOG_LISTENER: "false"
+      START_FILE_WATCHER: "false"
+
+      # Secrets via files (production) or env vars (dev fallback)
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+
+      # Threat Intelligence API keys (populated from .env)
+      VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
+      ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
+      OTX_API_KEY: ${OTX_API_KEY:-}
+
+      # SMTP Configuration (MailHog for dev, real SMTP for production)
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+
+      # Database URL — asyncpg for async (deadlock-free), settings.py builds sync URL for Alembic
+      DATABASE_URL: postgresql+asyncpg://cybernova:postgres-pass-123@postgres:5432/cybernova
+
+      # Pool sizing
+      DB_POOL_SIZE: "10"
+      DB_MAX_OVERFLOW: "5"
+      DB_POOL_TIMEOUT: "30"
+
+      # JWT secret and keys
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key-change-in-production-min-32-chars!!}
+      SECRET_KEY: ${SECRET_KEY:-dev-jwt-secret-key-change-in-production-min-32-chars!!}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin2026!}
+      AGENT_PASSWORD: ${AGENT_PASSWORD:-AgentSecure2026!}
+      AGENT_PASSWORD_FILE: /run/secrets/agent_password
+
+    secrets:
+      - jwt_secret
+      - admin_password
+      - agent_password
+      - postgres_password
+      - redis_password
+      - smtp_password
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    user: cybernova
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "768m"
+        reservations:
+          cpus: "0.25"
+          memory: "192m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=5).status==200 else 1)"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Frontend UI
+  # ─────────────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./cybernova-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_BASE_PATH: /app/
+    container_name: cybernova-frontend
+    ports:
+      - "8080:80"
+    # VITE_BASE_PATH=/app/ — SPA served at /app/ via nginx reverse proxy
+    # Marketing website at / via nginx serving static web-page/out/ files
+    # VITE_API_URL left empty — frontend makes same-origin API calls through nginx reverse proxy
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "64m"
+        reservations:
+          cpus: "0.05"
+          memory: "32m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/app/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Nginx Reverse Proxy
+  # ─────────────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: cybernova-nginx
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /etc/nginx/conf.d
+    ports:
+      - "443:443"
+      - "8888:80"
+    volumes:
+      - ./nginx/nginx-unified.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./web-page/out:/usr/share/nginx/html
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # Generate self-signed certs if missing (dev mode)
+        # openssl is included in nginx:alpine base image
+        if [ ! -f /etc/nginx/ssl/cert.pem ] || [ ! -f /etc/nginx/ssl/key.pem ]; then
+          echo '[nginx] Generating self-signed SSL certs for dev...'
+          mkdir -p /etc/nginx/ssl
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout /etc/nginx/ssl/key.pem \
+            -out /etc/nginx/ssl/cert.pem \
+            -subj '/C=US/ST=Local/L=Local/O=CyberNova/CN=localhost' 2>/dev/null
+          echo '[nginx] SSL certs ready'
+        fi
+        # Start nginx
+        exec nginx -g 'daemon off;'
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: "32m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Pipeline Workers
+  # ─────────────────────────────────────────────────────────────────────────
+  pipeline-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    command: ["python3", "/app/scripts/run_workers.py"]
+    tmpfs:
+      - /tmp
+    privileged: false
+    volumes:
+      - ./cybernova:/app/cybernova:ro
+      - ./scripts:/app/scripts:ro
+      - ./data/rag_store:/data/rag_store
+    environment:
+      RAG_PERSIST_DIR: /app/data/rag_store
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      WORKER_MODE: "true"
+      START_API_SERVER: "false"
+      RUN_ALL_SERVICES: "false"
+      START_LOCAL_AGENT: "false"
+      START_WORKER_PROCESSOR: "false"
+      START_SYSLOG_LISTENER: "false"
+      START_FILE_WATCHER: "false"
+      START_ALL_WORKERS: "false"
+
+      DATABASE_URL: postgresql+asyncpg://cybernova:postgres-pass-123@postgres:5432/cybernova
+
+      # Pool sizing
+      DB_POOL_SIZE: "10"
+      DB_MAX_OVERFLOW: "5"
+      DB_POOL_TIMEOUT: "30"
+
+      # Redis connection (must match the redis service name)
+      REDIS_HOST: redis
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+
+      # JWT secret and keys (must match backend)
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-key-change-in-production-min-32-chars!!}
+      SECRET_KEY: ${SECRET_KEY:-dev-jwt-secret-key-change-in-production-min-32-chars!!}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin2026!}
+      AGENT_PASSWORD: ${AGENT_PASSWORD:-AgentSecure2026!}
+
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+
+      # Threat Intelligence API keys (populated from .env)
+      VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
+      ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
+      OTX_API_KEY: ${OTX_API_KEY:-}
+
+      # SMTP — must match backend so the notifier can send emails via MailHog
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      FROM_EMAIL: ${FROM_EMAIL:-cybernova@localhost}
+      ONCALL_EMAIL: ${ALERT_EMAIL_TO:-admin@localhost}
+
+    secrets:
+      - jwt_secret
+      - admin_password
+      - postgres_password
+      - redis_password
+      - smtp_password
+    cap_drop:
+      - ALL
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    user: cybernova
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import importlib; importlib.import_module('cybernova.streaming.pipeline_worker'); print('worker module OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "256m"
+        reservations:
+          cpus: "0.1"
+          memory: "64m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Monitoring: Prometheus
+  # ─────────────────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: cybernova-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=3d'
+      - '--storage.tsdb.retention.size=500MB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: "96m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Monitoring: Alertmanager
+  # ─────────────────────────────────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: cybernova-alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    environment:
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_USER=
+      - SMTP_PASSWORD=
+      - FROM_EMAIL=alertmanager@cybernova.io
+      - ALERT_EMAIL_TO=admin@cybernova.local
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: "32m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Monitoring: Grafana
+  # ─────────────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: cybernova-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-grafana-admin-123}
+      - GF_INSTALL_PLUGINS=
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_AUTH_BASIC_ENABLED=true
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=strict
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/cybernova-overview.json
+    volumes:
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: "96m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Suricata NIDS (Network Intrusion Detection)
+  # ─────────────────────────────────────────────────────────────────────────
+  suricata:
+    build:
+      context: ./suricata
+      dockerfile: Dockerfile
+    container_name: cybernova-suricata
+    privileged: false
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+    environment:
+      BACKEND_URL: http://backend:8000
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASS: ${ADMIN_PASS:-admin123!}
+      SENSOR_HOSTNAME: suricata-sensor-1
+      EVE_PATH: /var/log/suricata/eve.json
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "128m"
+        reservations:
+          cpus: "0.1"
+          memory: "32m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "suricata", "--build-info"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # MailHog — Local SMTP Catcher (dev/testing)
+  # View captured emails at http://localhost:8025
+  # ─────────────────────────────────────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: cybernova-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - cybernova-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "64m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+networks:
+  cybernova-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:

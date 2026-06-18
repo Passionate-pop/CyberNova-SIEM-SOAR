@@ -1,0 +1,32 @@
+title: User Clicks Link in Email Client
+id: a1000002-0022-4000-8000-000000000022
+description: Detects a user clicking a URL in an email client that launches a browser or script host
+references:
+    - https://attack.mitre.org/techniques/T1204/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.execution
+    - attack.t1204.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        ParentImage|endswith:
+            - \OUTLOOK.EXE
+            - \THUNDERBIRD.EXE
+            - \mailclient.exe
+        Image|endswith:
+            - \chrome.exe
+            - \firefox.exe
+            - \iexplore.exe
+            - \msedge.exe
+        CommandLine|contains:
+            - 'http://'
+            - 'https://'
+    condition: selection
+falsepositives:
+    - Legitimate links clicked in emails by users
+    - Email preview pane auto-loading URLs
+level: medium

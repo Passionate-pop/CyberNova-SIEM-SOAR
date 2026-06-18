@@ -1,0 +1,26 @@
+title: Remote Access Outside Business Hours
+id: a1000001-0025-4000-8000-000000000025
+description: Detects remote access VPN connections established outside normal business hours
+references:
+    - https://attack.mitre.org/techniques/T1133/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1133
+logsource:
+    category: firewall
+    product: network
+detection:
+    selection:
+        VPNAction: connect
+        ConnectionTime|between:
+            - '19:00:00'
+            - '07:00:00'
+    condition: selection
+falsepositives:
+    - On-call IT staff
+    - Employees working overtime
+    - Global team members in different time zones
+    - Automated backup or update processes
+level: low

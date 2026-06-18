@@ -1,0 +1,33 @@
+title: Mass File Deletion Across Multiple Directories
+id: a1000012-0014-4000-8000-000000000014
+description: Detects bulk file deletion events across many directories within a short timeframe, indicative of destructive malware or data destruction activity.
+references:
+    - https://attack.mitre.org/techniques/T1485/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1485.002
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        EventID: 2
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+            - '\rm.exe'
+            - '\del.exe'
+        CommandLine|contains:
+            - '/s'
+            - '-r'
+            - '-rf'
+            - '/q'
+            - '/f'
+    condition: selection
+falsepositives:
+    - Authorized cleanup scripts by IT administrators
+    - Uninstallers removing application directories
+    - Temporary file cleanup scheduled tasks
+level: high

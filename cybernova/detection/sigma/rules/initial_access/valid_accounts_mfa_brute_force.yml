@@ -1,0 +1,25 @@
+title: Multiple MFA Challenge Failures
+id: a1000001-0019-4000-8000-000000000019
+description: Detects multiple failed MFA challenges potentially indicating MFA fatigue attacks
+references:
+    - https://attack.mitre.org/techniques/T1078/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1078
+logsource:
+    category: authentication
+    product: cloud
+detection:
+    selection:
+        EventName:
+            - MFA_FAILURE
+            - MFA_DENIED
+            - MFA_CHALLENGE_FAILED
+        Count|gt: 10
+    condition: selection
+falsepositives:
+    - User testing MFA configuration
+    - Multiple device registration attempts
+level: high

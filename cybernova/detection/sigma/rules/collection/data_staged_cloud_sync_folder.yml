@@ -1,0 +1,36 @@
+title: Data Staged in Cloud Sync Folder
+id: a1000009-0018-4000-8000-000000000018
+description: Detects bulk file creation or modification in cloud storage sync directories indicating data staging for exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1074/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1074
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_cloud_sync:
+        TargetFilename|contains:
+            - '\Dropbox\'
+            - '\Google Drive\'
+            - '\OneDrive\'
+            - '\iCloud\'
+            - '\Box\'
+            - '\Box Sync\'
+    selection_high_volume:
+        TargetFilename|endswith:
+            - '.zip'
+            - '.rar'
+            - '.7z'
+            - '.doc'
+            - '.xls'
+            - '.pdf'
+            - '.txt'
+    condition: selection_cloud_sync and selection_high_volume
+falsepositives:
+    - Legitimate cloud file synchronization
+    - User copying files to cloud storage for backup
+level: medium

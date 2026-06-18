@@ -1,0 +1,40 @@
+title: FTP Upload of Sensitive File Types
+id: a1000011-0005-4000-8000-000000000005
+description: Detects FTP uploads of sensitive file types (documents, archives, databases) to external hosts
+references:
+    - https://attack.mitre.org/techniques/T1048/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1048
+    - attack.t1048.003
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Initiated: 'true'
+        DestinationPort:
+            - 20
+            - 21
+        FileExtension:
+            - '.zip'
+            - '.rar'
+            - '.7z'
+            - '.tar'
+            - '.gz'
+            - '.doc'
+            - '.docx'
+            - '.xls'
+            - '.xlsx'
+            - '.pdf'
+            - '.csv'
+            - '.sql'
+            - '.mdf'
+            - '.bak'
+    condition: selection
+falsepositives:
+    - Legitimate file transfers by authorized administrators
+    - Automated backup processes to FTP servers
+level: medium

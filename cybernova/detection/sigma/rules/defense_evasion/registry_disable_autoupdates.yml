@@ -1,0 +1,25 @@
+title: Automatic Updates Disabled via Registry
+id: a1000005-0054-4000-8000-000000000054
+description: Detects when automatic updates are disabled via registry, preventing security patch installation.
+references:
+    - https://attack.mitre.org/techniques/T1112/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1112
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|endswith:
+            - '\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU\NoAutoUpdate'
+            - '\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU\AUOptions'
+        Details:
+            - '1'
+            - '2'
+    condition: selection
+falsepositives:
+    - Authorized configuration in managed environments with separate patch management
+level: medium

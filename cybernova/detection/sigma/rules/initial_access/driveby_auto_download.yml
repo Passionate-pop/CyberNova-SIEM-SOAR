@@ -1,0 +1,36 @@
+title: Automatic File Download from Browser
+id: a1000001-0012-4000-8000-000000000012
+description: Detects automatic file downloads initiated by browser processes without user interaction
+references:
+    - https://attack.mitre.org/techniques/T1189/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1189
+logsource:
+    category: endpoint
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - \chrome.exe
+            - \firefox.exe
+            - \msedge.exe
+        TargetFilename|endswith:
+            - .exe
+            - .dll
+            - .vbs
+            - .ps1
+            - .js
+            - .jar
+            - .docm
+            - .xlsm
+            - .hta
+        Initiated: true
+    condition: selection
+falsepositives:
+    - User initiated file downloads
+    - Browser update downloads
+    - PDF viewer downloads
+level: medium

@@ -1,0 +1,24 @@
+title: ETW (Event Tracing for Windows) Disabled
+id: a1000005-0007-4000-8000-000000000007
+description: Detects when Event Tracing for Windows is disabled via registry or process manipulation, often used to evade ETW-based detection.
+references:
+    - https://attack.mitre.org/techniques/T1562/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1562
+    - attack.t1562.001
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - '\Microsoft\Windows\CurrentVersion\WINEVT\Channels'
+            - '\Microsoft\Windows\CurrentVersion\WINEVT\Publishers'
+        EventType: SetValue
+    condition: selection
+falsepositives:
+    - Legitimate ETW configuration changes by administrators
+level: medium

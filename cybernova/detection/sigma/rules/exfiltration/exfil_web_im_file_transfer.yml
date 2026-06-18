@@ -1,0 +1,32 @@
+title: File Transfer via Instant Messaging Platform
+id: a1000011-0016-4000-8000-000000000016
+description: Detects file uploads to instant messaging platforms (Slack, Teams, Discord, Telegram) which may be used for data exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1567/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1567
+    - attack.t1567.004
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Initiated: 'true'
+        DestinationPort: 443
+        DestinationHostname|contains:
+            - 'slack.com'
+            - 'microsoft.teams.com'
+            - 'discord.com'
+            - 'discordapp.com'
+            - 'telegram.org'
+            - 'signal.org'
+            - 'whatsapp.com'
+        BytesSent|gte: 1048576
+    condition: selection
+falsepositives:
+    - Legitimate file sharing within authorized collaboration tools
+    - Automated bot notifications with file attachments
+level: medium

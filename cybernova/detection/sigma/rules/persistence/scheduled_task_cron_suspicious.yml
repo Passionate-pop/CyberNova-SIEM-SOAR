@@ -1,0 +1,30 @@
+title: Suspicious Cron Job Entries
+id: a1000003-0028-4000-8000-000000000028
+description: Detects suspicious cron job entries with unusual execution paths or payloads
+references:
+    - https://attack.mitre.org/techniques/T1053/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1053
+    - attack.t1053.003
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        CommandLine|contains:
+            - 'wget'
+            - 'curl'
+            - 'bash -i'
+            - 'nc '
+            - 'ncat'
+            - 'mkfifo'
+            - 'python -c '
+        Image|endswith: '/cron'
+    condition: selection
+falsepositives:
+    - Backup scripts using network tools
+    - Monitoring solutions using curl
+level: high

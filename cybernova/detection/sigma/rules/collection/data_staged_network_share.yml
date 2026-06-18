@@ -1,0 +1,37 @@
+title: Data Staged on Network Share
+id: a1000009-0017-4000-8000-000000000017
+description: Detects bulk file writes to network shares which may indicate data staging before exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1074/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1074
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_network_path:
+        TargetFilename|contains:
+            - '\\*'
+            - '\unc\'
+            - '\smb\'
+        TargetFilename|startswith:
+            - '\\'
+    selection_ext:
+        TargetFilename|endswith:
+            - '.zip'
+            - '.rar'
+            - '.7z'
+            - '.tar'
+            - '.pst'
+            - '.ost'
+            - '.sql'
+    selection_bulk:
+        EventID: 11
+    condition: selection_network_path and selection_ext
+falsepositives:
+    - Legitimate file sharing via network drives
+    - Centralized backup solutions writing to NAS
+level: low

@@ -1,0 +1,32 @@
+title: SSH Outbound to Unusual Port
+id: a1000010-0035-4000-8000-000000000035
+description: Detects SSH connections from internal hosts to external IPs on non-standard ports, often used for C2 tunneling over SSH
+references:
+    - https://attack.mitre.org/techniques/T1095/
+    - https://attack.mitre.org/techniques/T1095/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1095.002
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_ssh_banner:
+        banner|startswith: 'SSH-'
+    selection_unusual_port:
+        dst_port|not_in:
+            - 22
+            - 2222
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection_ssh_banner and selection_unusual_port and selection_external
+falsepositives:
+    - SSH servers on alternative ports for security
+    - Docker containers with SSH on high ports
+    - Managed file transfer appliances
+level: medium

@@ -1,0 +1,39 @@
+title: Suspicious File Copy from Removable Media
+id: a1000001-0038-4000-8000-000000000038
+description: Detects suspicious file copy operations from removable media to sensitive locations
+references:
+    - https://attack.mitre.org/techniques/T1091/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1091
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        EventID: 11
+        SourceFilename|contains:
+            - D:\
+            - E:\
+            - F:\
+        TargetFilename|contains:
+            - \Users\
+            - \Windows\System32
+            - \Windows\SysWOW64
+            - \AppData\Roaming
+            - \AppData\Local\
+            - \Startup
+        TargetFilename|endswith:
+            - .exe
+            - .dll
+            - .ps1
+            - .vbs
+            - .bat
+    condition: selection
+falsepositives:
+    - User copying legitimate files for work
+    - System administration tasks
+    - Software installation from USB
+level: medium

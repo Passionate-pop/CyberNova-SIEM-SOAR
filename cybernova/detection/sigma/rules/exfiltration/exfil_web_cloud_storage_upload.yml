@@ -1,0 +1,32 @@
+title: Large Upload to Cloud Storage Service
+id: a1000011-0013-4000-8000-000000000013
+description: Detects large file uploads to popular cloud storage services which may indicate data exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1567/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1567
+    - attack.t1567.002
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Initiated: 'true'
+        DestinationPort: 443
+        DestinationHostname|contains:
+            - 'dropbox.com'
+            - 'drive.google.com'
+            - 'onedrive.live.com'
+            - 'icloud.com'
+            - 'box.com'
+            - 'mega.nz'
+        BytesSent|gte: 52428800
+    condition: selection
+falsepositives:
+    - Authorized cloud backup sync operations
+    - Large file sharing via legitimate business accounts
+    - Cloud storage migration projects
+level: medium

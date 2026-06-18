@@ -1,0 +1,41 @@
+title: Cloud Backup or Snapshot Service Disabled
+id: a1000012-0024-4000-8000-000000000024
+description: Detects attempts to disable cloud backup or snapshot services across major providers (AWS, Azure, GCP), preventing automated backups from protecting data.
+references:
+    - https://attack.mitre.org/techniques/T1490/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1490.003
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_aws_backup:
+        CommandLine|contains:
+            - 'aws backup delete-backup-plan'
+            - 'aws backup stop-backup-job'
+            - 'aws backup delete-vault'
+            - 'aws backup delete-recovery-point'
+    selection_az_backup:
+        CommandLine|contains:
+            - 'az backup protection disable'
+            - 'az backup policy delete'
+            - 'az backup vault delete'
+    selection_gcloud_backup:
+        CommandLine|contains:
+            - 'gcloud beta backup'
+            - 'gcloud compute snapshots delete'
+            - 'gcloud sql backups delete'
+    selection_ps_azure_backup:
+        Image|endswith: '\powershell.exe'
+        CommandLine|contains|all:
+            - 'Disable-AzRecoveryServicesBackup'
+            - 'Remove-AzRecoveryServicesBackup'
+    condition: 1 of selection_*
+falsepositives:
+    - Authorized cloud resource decommissioning
+    - Cost optimization removing unused backup plans
+    - DevOps automation scripts for cleanup
+level: high

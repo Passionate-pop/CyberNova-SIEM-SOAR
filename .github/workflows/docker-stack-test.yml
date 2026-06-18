@@ -1,0 +1,164 @@
+name: Docker Stack Integration Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ── Full Docker Compose stack test ────────────────────────────────
+  docker-stack-test:
+    name: Full Stack Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create secrets directory
+        run: |
+          mkdir -p secrets nginx/ssl data/rag_store monitoring/grafana/datasources monitoring/grafana/dashboards
+          echo "ci-test-jwt-secret-key-change-in-production-min-32" > secrets/jwt_secret.txt
+          echo "Admin2026!" > secrets/admin_password.txt
+          echo "AgentSecure2026!" > secrets/agent_password.txt
+          echo "postgres-pass-123" > secrets/postgres_password.txt
+          echo "redis-pass-123" > secrets/redis_password.txt
+          echo "" > secrets/smtp_password.txt
+
+      - name: Create Grafana provisioning dirs
+        run: |
+          mkdir -p monitoring/grafana/datasources monitoring/grafana/dashboards
+
+      - name: Build and start full stack
+        run: |
+          docker compose build --no-cache backend frontend
+          docker compose up -d
+        env:
+          ENVIRONMENT: development
+
+      - name: Wait for all services to be healthy
+        run: |
+          echo "Waiting for services to become healthy..."
+          TIMEOUT=120
+          ELAPSED=0
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            HEALTHY=$(docker compose ps --format json 2>/dev/null | grep -c '"healthy"' || echo 0)
+            TOTAL=$(docker compose ps --format json 2>/dev/null | wc -l || echo 0)
+            echo "  [$ELAPSED}s] Healthy: $HEALTHY / Total: $TOTAL"
+            if [ "$HEALTHY" -ge 8 ]; then
+              echo "All critical services healthy!"
+              break
+            fi
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+          done
+          docker compose ps
+          if [ $ELAPSED -ge $TIMEOUT ]; then
+            echo "TIMEOUT: Not all services became healthy within ${TIMEOUT}s"
+            docker compose logs --tail=50
+            exit 1
+          fi
+
+      - name: Test backend health via nginx
+        run: |
+          echo "=== Health ==="
+          curl -sf http://localhost:8888/health | head -c 200
+          echo ""
+          echo "=== Ready ==="
+          curl -sf http://localhost:8888/ready -w " HTTP:%{http_code}\n" -o /dev/null
+          echo "=== Frontend ==="
+          curl -sf http://localhost:8888/app/ -w " HTTP:%{http_code}\n" -o /dev/null
+          echo "=== Prometheus ==="
+          curl -sf http://localhost:9090/-/ready -w " HTTP:%{http_code}\n" -o /dev/null
+          echo "=== Alertmanager ==="
+          curl -sf http://localhost:9093/-/ready -w " HTTP:%{http_code}\n" -o /dev/null
+
+      - name: Run attack simulation (all 3 roles)
+        run: |
+          # Clear Redis to avoid lockouts from previous runs
+          docker exec cybernova-redis redis-cli -a "redis-pass-123" FLUSHALL 2>/dev/null || true
+          python scripts/attack_sim.py
+        env:
+          PYTHONIOENCODING: utf-8
+
+      - name: Run E2E Python test suite
+        run: |
+          docker exec cybernova-redis redis-cli -a "redis-pass-123" FLUSHALL 2>/dev/null || true
+          python -c "
+          import json, urllib.request, urllib.error
+
+          BASE = 'http://localhost:8000'
+          def api(method, path, token=None, body=None):
+              headers = {'Content-Type': 'application/json'}
+              if token: headers['Authorization'] = f'Bearer {token}'
+              data = json.dumps(body).encode() if body else None
+              req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=10) as resp:
+                      return resp.status, json.loads(resp.read())
+              except urllib.error.HTTPError as e:
+                  return e.code, {}
+
+          P = F = 0
+          def chk(n, s, ok):
+              global P, F
+              if ok: P += 1
+              else: F += 1; print(f'FAIL: {n} (HTTP {s})')
+
+          # Health
+          s, _ = api('GET', '/health'); chk('health', s, s == 200)
+          s, _ = api('GET', '/ready'); chk('ready', s, s == 200)
+
+          # Register + login admin
+          s, d = api('POST', '/api/v1/auth/register', body={'username':'ci_admin','email':'ci@test.com','password':'Admin2026!','roles':['admin']})
+          T = d.get('access_token', '')
+          chk('register_admin', s, s == 200 and T)
+
+          # Dashboard + seed + simulate
+          s, _ = api('GET', '/api/v1/dashboard/summary', token=T); chk('dashboard', s, s == 200)
+          s, _ = api('POST', '/api/v1/dashboard/seed', token=T); chk('seed', s, s == 200)
+          s, _ = api('POST', '/api/v1/pipeline/simulate-attack', token=T); chk('simulate', s, s == 200)
+          s, d = api('GET', '/api/v1/dashboard/alerts', token=T); chk('alerts', s, s == 200 and len(d) > 0)
+          s, _ = api('GET', '/api/v1/dashboard/incidents', token=T); chk('incidents', s, s == 200)
+          s, _ = api('GET', '/api/v1/dashboard/logs', token=T); chk('logs', s, s == 200)
+          s, _ = api('GET', '/api/v1/dashboard/threat-intel', token=T); chk('threat_intel', s, s == 200)
+          s, _ = api('GET', '/api/v1/pipeline/status', token=T); chk('pipeline', s, s == 200)
+          s, _ = api('GET', '/api/v1/detect/rules', token=T); chk('rules', s, s == 200)
+          s, _ = api('GET', '/api/v1/monitoring/sla', token=T); chk('sla', s, s == 200)
+          s, _ = api('POST', '/api/v1/soar/block-ip', token=T, body={'ip_address':'10.99.99.1','reason':'CI'}); chk('block_ip', s, s == 200)
+
+          # RBAC: register staff (viewer) and verify blocked
+          s, d = api('POST', '/api/v1/auth/register', body={'username':'ci_staff','email':'ci_staff@test.com','password':'Admin2026!','roles':['viewer']})
+          T3 = d.get('access_token', '')
+          chk('register_staff', s, s == 200 and T3)
+          s, _ = api('GET', '/api/v1/dashboard/summary', token=T3); chk('staff_dashboard', s, s == 200)
+          s, _ = api('POST', '/api/v1/pipeline/simulate-attack', token=T3); chk('staff_blocked_simulate', s, s == 403)
+
+          # Unauthenticated
+          s, _ = api('GET', '/api/v1/dashboard/summary'); chk('unauth_blocked', s, s == 401)
+
+          print(f'\\nRESULTS: {P} passed / {F} failed / {P+F} total')
+          if F > 0: exit(1)
+          "
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          docker compose logs --tail=100 > /tmp/docker-compose-logs.txt 2>&1
+          cat /tmp/docker-compose-logs.txt
+
+      - name: Upload logs artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-stack-logs
+          path: /tmp/docker-compose-logs.txt
+          retention-days: 7
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v

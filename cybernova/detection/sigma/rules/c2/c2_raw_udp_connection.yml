@@ -1,0 +1,38 @@
+title: Raw UDP Communication to External IP
+id: a1000010-0032-4000-8000-000000000032
+description: Detects raw UDP socket communication to external IP addresses, bypassing standard application protocols for covert C2 channels
+references:
+    - https://attack.mitre.org/techniques/T1095/
+    - https://attack.mitre.org/techniques/T1095/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1095.001
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_raw:
+        socket_type: SOCK_RAW
+        protocol: IP
+    selection_udp:
+        protocol: UDP
+        dst_port|not_in:
+            - 53
+            - 123
+            - 67
+            - 68
+            - 443
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+            - 127.0.0.0/8
+    condition: selection_raw and selection_udp and selection_external
+falsepositives:
+    - Network discovery tools
+    - VPN implementations using raw sockets
+    - Custom UDP-based applications
+level: high

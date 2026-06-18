@@ -1,0 +1,26 @@
+title: Cloud Firewall Rule Deleted
+id: a1000005-0018-4000-8000-000000000018
+description: Detects deletion of cloud firewall rules such as AWS Security Groups or Azure NSG rules, potentially exposing resources.
+references:
+    - https://attack.mitre.org/techniques/T1562/007/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1562
+    - attack.t1562.007
+logsource:
+    service: cloudtrail
+    product: aws
+detection:
+    selection:
+        eventName:
+            - 'RevokeSecurityGroupIngress'
+            - 'RevokeSecurityGroupEgress'
+            - 'DeleteSecurityGroup'
+            - 'DeleteNetworkAclEntry'
+        userIdentity.type: 'Root'
+    condition: selection
+falsepositives:
+    - Authorized cloud infrastructure reconfiguration
+level: high

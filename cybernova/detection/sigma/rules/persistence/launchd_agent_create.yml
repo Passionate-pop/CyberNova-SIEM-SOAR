@@ -1,0 +1,27 @@
+title: Launchd Agent or Daemon Plist Creation
+id: a1000003-0040-4000-8000-000000000040
+description: Detects creation of launchd agent or daemon plist files for macOS persistence
+references:
+    - https://attack.mitre.org/techniques/T1053/007/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1053
+    - attack.t1053.007
+logsource:
+    category: file_event
+    product: macos
+detection:
+    selection:
+        TargetFilename|contains:
+            - '/Library/LaunchAgents/'
+            - '/Library/LaunchDaemons/'
+            - '~/Library/LaunchAgents/'
+        TargetFilename|endswith: '.plist'
+    condition: selection
+falsepositives:
+    - Legitimate software installation
+    - macOS system updates
+    - Application auto-update mechanisms
+level: high

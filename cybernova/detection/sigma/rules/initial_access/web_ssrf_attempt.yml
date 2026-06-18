@@ -1,0 +1,30 @@
+title: Server-Side Request Forgery Attempt
+id: a1000001-0007-4000-8000-000000000007
+description: Detects SSRF patterns in HTTP requests targeting internal infrastructure
+references:
+    - https://attack.mitre.org/techniques/T1190/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1190
+logsource:
+    category: webserver
+    product: web
+detection:
+    selection:
+        cs-uri-query|contains:
+            - 127.0.0.1
+            - 10.
+            - 172.16.
+            - 192.168.
+            - 169.254.
+            - localhost
+            - metadata.google
+            - 169.254.169.254
+            - instance-data
+    condition: selection
+falsepositives:
+    - Legitimate use of internal IPs in application configuration
+    - Penetration testing
+level: medium

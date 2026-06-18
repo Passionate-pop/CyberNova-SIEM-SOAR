@@ -1,0 +1,41 @@
+title: Pass-the-Ticket Kerberos Abuse Detected
+id: a1000008-0029-4000-8000-000000000029
+description: Detects pass-the-ticket attacks where Kerberos tickets are stolen and reused on different systems, including forged or manipulated ticket-granting tickets (TGT) or service tickets
+references:
+    - https://attack.mitre.org/techniques/T1550/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1550.003
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_mimikatz:
+        Image|endswith:
+            - \mimikatz.exe
+            - \mimikatz64.exe
+        CommandLine|contains:
+            - 'kerberos::ptt'
+            - 'sekurlsa::tickets'
+    selection_rubeus:
+        Image|endswith:
+            - \Rubeus.exe
+        CommandLine|contains:
+            - 'ptt'
+            - 'asktgt'
+            - 'renew'
+            - 'extract'
+    selection_powershell:
+        Image|endswith:
+            - \powershell.exe
+            - \pwsh.exe
+        CommandLine|contains:
+            - 'KerberosRequestorSecurityToken'
+            - 'Klist'
+    condition: 1 of selection_*
+falsepositives:
+    - Security testing tools used in authorized assessments
+    - Legitimate Kerberos ticket renewal processes
+level: critical

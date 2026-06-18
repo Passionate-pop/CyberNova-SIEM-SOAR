@@ -1,0 +1,24 @@
+title: Suspicious LNK File Placed On Network Share
+id: a1000008-0021-4000-8000-000000000021
+description: Detects shortcut (.lnk) files being created on network shares with suspicious characteristics such as pointing to executables, PowerShell commands, or containing unusual arguments
+references:
+    - https://attack.mitre.org/techniques/T1080/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1080.001
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_share:
+        TargetFilename|contains:
+            - '\\*\*'
+    selection_lnk:
+        TargetFilename|endswith: '.lnk'
+    condition: selection_share and selection_lnk
+falsepositives:
+    - Users creating shortcuts on shared drives for convenience
+    - Application installers creating shortcuts on network locations
+level: medium

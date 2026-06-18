@@ -1,0 +1,39 @@
+title: Data Staged in Temporary Directory Before Exfiltration
+id: a1000009-0016-4000-8000-000000000016
+description: Detects creation or staging of archive and data files in system temp directories prior to exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1074/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1074
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection_temp_paths:
+        TargetFilename|contains:
+            - '\AppData\Local\Temp\'
+            - '\Windows\Temp\'
+            - '\TEMP\'
+            - '\%TEMP%'
+    selection_suspicious_ext:
+        TargetFilename|endswith:
+            - '.zip'
+            - '.rar'
+            - '.7z'
+            - '.tar'
+            - '.gz'
+            - '.dat'
+            - '.db'
+            - '.sql'
+    selection_operation:
+        EventID:
+            - 11
+            - 2
+    condition: selection_temp_paths and selection_suspicious_ext
+falsepositives:
+    - Software installers extracting to temp directory
+    - Legitimate temporary file creation by system processes
+level: medium

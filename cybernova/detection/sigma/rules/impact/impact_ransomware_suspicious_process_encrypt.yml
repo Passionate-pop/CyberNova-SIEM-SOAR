@@ -1,0 +1,30 @@
+title: Suspicious Process Performing File Encryption
+id: a1000012-0004-4000-8000-000000000004
+description: Detects processes with unusual names or from non-standard directories performing file write operations on a large scale, potentially indicating ransomware encryption behavior.
+references:
+    - https://attack.mitre.org/techniques/T1486/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1486.002
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|contains:
+            - '\Temp\'
+            - '\AppData\Local\Temp\'
+            - '\Users\*\AppData\Roaming\'
+        CommandLine|contains:
+            - '-encrypt'
+            - '--encrypt'
+            - 'aes'
+            - 'rsa'
+            - 'cipher'
+    condition: selection
+falsepositives:
+    - Legitimate encryption software (BitLocker, VeraCrypt)
+    - Development tools performing cryptographic operations
+level: medium

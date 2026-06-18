@@ -1,0 +1,22 @@
+title: RDP Admin Session Console Detected
+id: a1000008-0003-4000-8000-000000000003
+description: Detects RDP console (admin/administrative) session connections which connect to the actual console session (session 0) and bypass the terminal services session limit
+references:
+    - https://attack.mitre.org/techniques/T1021/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1021.001
+logsource:
+    category: terminal_services
+    product: windows
+detection:
+    selection:
+        EventID: 21
+        SessionType: 'Console'
+    condition: selection
+falsepositives:
+    - Authorized administrative remote assistance
+    - Datacenter management tools using console sessions
+level: medium

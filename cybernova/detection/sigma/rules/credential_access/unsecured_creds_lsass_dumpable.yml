@@ -1,0 +1,23 @@
+title: LSASS Running with Dumpable Flag
+id: a1000006-0032-4000-8000-000000000032
+description: Detects LSASS process running with dumpable flag set on Linux
+references:
+    - https://attack.mitre.org/techniques/T1003/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1003.001
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'lsass'
+            - 'dumpable'
+    condition: selection
+falsepositives:
+    - Debugging scenarios
+    - Development environments
+level: medium

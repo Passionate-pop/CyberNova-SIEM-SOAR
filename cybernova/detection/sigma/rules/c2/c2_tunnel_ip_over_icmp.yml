@@ -1,0 +1,35 @@
+title: IP over ICMP Tunneling Detection
+id: a1000010-0036-4000-8000-000000000036
+description: Detects IP-encapsulated-in-ICMP packets, a covert tunneling technique used for C2 communication that bypasses firewalls
+references:
+    - https://attack.mitre.org/techniques/T1095/
+    - https://attack.mitre.org/techniques/T1095/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1095.002
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_icmp:
+        protocol: ICMP
+        icmp_type:
+            - 8
+            - 0
+    selection_embedded_ip:
+        icmp_payload|startswith:
+            - '\x45\x00'
+            - '\x46\x00'
+            - '\x4d\x00'
+            - '\x4e\x00'
+        icmp_payload_protocol|contains:
+            - 'TCP'
+            - 'UDP'
+    condition: selection_icmp and selection_embedded_ip
+falsepositives:
+    - Some VPN implementations using ICMP
+    - Network testing tools
+    - Tunneling software for restricted networks
+level: critical

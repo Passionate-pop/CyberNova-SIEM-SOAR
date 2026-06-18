@@ -1,0 +1,38 @@
+title: Antivirus Process Killed or Stopped
+id: a1000005-0001-4000-8000-000000000001
+description: Detects when an antivirus process is killed or terminated, indicating an attempt to impair endpoint defenses.
+references:
+    - https://attack.mitre.org/techniques/T1562/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1562
+    - attack.t1562.001
+logsource:
+    category: process_termination
+    product: windows
+detection:
+    selection:
+        TargetImage|endswith:
+            - '\MsMpEng.exe'
+            - '\\avguard.exe'
+            - '\\VSServ.exe'
+            - '\\McAfeeProcess.exe'
+            - '\\ccSvcHst.exe'
+            - '\\SAVAdminService.exe'
+            - '\\SophosUI.exe'
+            - '\\CisTray.exe'
+            - '\\ekrn.exe'
+            - '\\bdagent.exe'
+        Image|endswith:
+            - '\taskkill.exe'
+            - '\wmic.exe'
+            - '\powershell.exe'
+            - '\cscript.exe'
+            - '\wscript.exe'
+    condition: selection
+falsepositives:
+    - Legitimate administrative scripts during software uninstallation
+    - IT-approved antivirus maintenance
+level: high

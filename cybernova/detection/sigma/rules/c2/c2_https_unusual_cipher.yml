@@ -1,0 +1,35 @@
+title: Unusual TLS Cipher Suite Used
+id: a1000010-0010-4000-8000-000000000010
+description: Detects outbound TLS connections using uncommon or weak cipher suites, often used by malware to evade detection
+references:
+    - https://attack.mitre.org/techniques/T1071/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.001
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_weak_cipher:
+        tls_cipher|contains:
+            - 'TLS_RSA_WITH_RC4_128'
+            - 'TLS_RSA_WITH_RC4_128_SHA'
+            - 'TLS_RSA_WITH_3DES_EDE_CBC_SHA'
+            - 'TLS_DHE_RSA_WITH_AES_128_CBC_SHA'
+            - 'TLS_ECDHE_ECDSA_WITH_RC4_128_SHA'
+            - 'TLS_RSA_EXPORT_WITH_RC4_40_MD5'
+            - 'TLS_RSA_WITH_NULL_SHA'
+            - 'TLS_RSA_WITH_NULL_MD5'
+    selection_uncommon:
+        tls_cipher|contains:
+            - 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305'
+            - 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305'
+        dst_port: 443
+    condition: selection_weak_cipher or selection_uncommon
+falsepositives:
+    - Legacy browser compatibility
+    - Embedded devices with limited crypto support
+    - Old application compatibility mode
+level: medium

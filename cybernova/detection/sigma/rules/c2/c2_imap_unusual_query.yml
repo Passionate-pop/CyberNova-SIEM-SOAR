@@ -1,0 +1,40 @@
+title: IMAP Query with Unusual Patterns
+id: a1000010-0017-4000-8000-000000000017
+description: Detects IMAP queries exhibiting unusual patterns indicative of non-email-client usage, such as automated data extraction by C2 malware
+references:
+    - https://attack.mitre.org/techniques/T1071/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.003
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_imap:
+        dst_port:
+            - 143
+            - 993
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    selection_high_frequency:
+        imap_command|contains:
+            - 'UID FETCH'
+            - 'FETCH'
+        imap_fetch_count|gte: 100
+    selection_unusual_cmd:
+        imap_command|contains:
+            - 'SEARCH ALL'
+            - 'SEARCH UNSEEN'
+            - 'STORE'
+            - 'COPY'
+    condition: selection_imap and selection_external and (selection_high_frequency or selection_unusual_cmd)
+falsepositives:
+    - Email archiving tools
+    - Backup software accessing IMAP
+    - Email migration utilities
+level: medium

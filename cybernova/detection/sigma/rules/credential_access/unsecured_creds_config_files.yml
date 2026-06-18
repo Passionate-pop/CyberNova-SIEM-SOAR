@@ -1,0 +1,26 @@
+title: Credentials in Configuration Files
+id: a1000006-0019-4000-8000-000000000019
+description: Detects access to configuration files containing credentials (web.config, app.config)
+references:
+    - https://attack.mitre.org/techniques/T1552/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1552.001
+logsource:
+    category: file_access
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains:
+            - 'web.config'
+            - 'app.config'
+            - '.env'
+            - 'database.yml'
+            - 'connectionstrings'
+    condition: selection
+falsepositives:
+    - Web server operations
+    - Application deployment
+level: medium

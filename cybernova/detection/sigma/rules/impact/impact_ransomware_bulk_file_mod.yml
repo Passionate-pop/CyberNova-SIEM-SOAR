@@ -1,0 +1,44 @@
+title: Mass File Modification Events in Short Timeframe
+id: a1000012-0003-4000-8000-000000000003
+description: Detects a high volume of file modification events occurring within a short time window, indicative of ransomware bulk-encrypting files across the system.
+references:
+    - https://attack.mitre.org/techniques/T1486/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1486.002
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        EventID: 11
+        Image|contains:
+            - '\Users\'
+            - '\ProgramData\'
+            - '\AppData\'
+        TargetFilename|contains:
+            - '\Documents\'
+            - '\Desktop\'
+            - '\Pictures\'
+            - '\Downloads\'
+        TargetFilename|endswith:
+            - '.doc'
+            - '.docx'
+            - '.xls'
+            - '.xlsx'
+            - '.ppt'
+            - '.pptx'
+            - '.pdf'
+            - '.jpg'
+            - '.png'
+            - '.zip'
+            - '.rar'
+    timeframe: 5m
+    condition: selection | count() > 50
+falsepositives:
+    - Antivirus scanning or remediation renaming files
+    - Backup software restoring large quantities of files
+    - File migration or archival tools
+level: medium

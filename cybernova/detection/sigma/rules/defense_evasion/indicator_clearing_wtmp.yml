@@ -1,0 +1,24 @@
+title: WTMP/BTMP/Lastlog Log Clearing
+id: a1000005-0033-4000-8000-000000000033
+description: Detects clearing of wtmp, btmp, or lastlog files containing login records on Linux systems.
+references:
+    - https://attack.mitre.org/techniques/T1070/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1070
+    - attack.t1070.002
+logsource:
+    category: file_event
+    product: linux
+detection:
+    selection:
+        TargetFilename|endswith:
+            - '/var/log/wtmp'
+            - '/var/log/btmp'
+            - '/var/log/lastlog'
+    condition: selection
+falsepositives:
+    - Authorized log rotation or system maintenance
+level: high

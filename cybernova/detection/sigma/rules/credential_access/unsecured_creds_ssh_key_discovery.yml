@@ -1,0 +1,26 @@
+title: SSH Private Key Discovery
+id: a1000006-0027-4000-8000-000000000027
+description: Detects discovery of SSH private key files (id_rsa, id_dsa, id_ecdsa, id_ed25519)
+references:
+    - https://attack.mitre.org/techniques/T1552/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1552.004
+logsource:
+    category: file_access
+    product: linux
+detection:
+    selection:
+        TargetFilename|contains:
+            - '.ssh/id_rsa'
+            - '.ssh/id_dsa'
+            - '.ssh/id_ecdsa'
+            - '.ssh/id_ed25519'
+            - '.ssh/authorized_keys'
+    condition: selection
+falsepositives:
+    - SSH key management
+    - Authorized key rotation
+level: high

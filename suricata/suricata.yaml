@@ -1,0 +1,187 @@
+%YAML 1.1
+---
+suricata:
+
+  nfqueue:
+    mode: accept
+    repeat-mark: 0
+    repeat-mask: 0
+    load-threshold: 100000
+    queues:
+      - queue: 0
+
+  vars:
+    address-groups:
+      HOME_NET: "[192.168.0.0/16,10.0.0.0/8,172.16.0.0/12]"
+      EXTERNAL_NET: "!$HOME_NET"
+      HTTP_SERVERS: "$HOME_NET"
+      SMTP_SERVERS: "$HOME_NET"
+      SQL_SERVERS: "$HOME_NET"
+      DNS_SERVERS: "$HOME_NET"
+      TELNET_SERVERS: "$HOME_NET"
+      AIM_SERVERS: "$EXTERNAL_NET"
+      DNP3_SERVER: "$HOME_NET"
+      DNP3_CLIENT: "$HOME_NET"
+      MODBUS_SERVER: "$HOME_NET"
+      MODBUS_CLIENT: "$HOME_NET"
+      ENIP_CLIENT: "$HOME_NET"
+      ENIP_SERVER: "$HOME_NET"
+    port-groups:
+      HTTP_PORTS: "80"
+      SHELLCODE_PORTS: "!80"
+      ORACLE_PORTS: 1521
+      SSH_PORTS: 22
+      DNP3_PORTS: 20000
+      MODBUS_PORTS: 502
+      FILE_DATA_PORTS: "[$HTTP_PORTS,110,143]"
+      FTP_PORTS: 21
+
+  classify:
+    - file: /etc/suricata/classification.config
+
+  reference:
+    - file: /etc/suricata/reference.config
+
+  rule-files:
+    - botcc.portgrouped
+    - ciarmy
+    - compromised
+    - drop
+    - dshield
+    - emerging-attack_response
+    - emerging-chat
+    - emerging-current_events
+    - emerging-deleted
+    - emerging-dns
+    - emerging-dos
+    - emerging-exploit
+    - emerging-ftp
+    - emerging-games
+    - emerging-icmp_info
+    - emerging-icmp
+    - emerging-imap
+    - emerging-inappropriate
+    - emerging-info
+    - emerging-malware
+    - emerging-misc
+    - emerging-mobile_malware
+    - emerging-netbios
+    - emerging-p2p
+    - emerging-policy
+    - emerging-pop3
+    - emerging-rpc
+    - emerging-scada
+    - emerging-scan
+    - emerging-shellcode
+    - emerging-smtp
+    - emerging-snmp
+    - emerging-sql
+    - emerging-telnet
+    - emerging-tftp
+    - emerging-trojan
+    - emerging-user_agents
+    - emerging-voip
+    - emerging-web_client
+    - emerging-web_server
+    - emerging-web_specific_apps
+    - emerging-worm
+    - tor
+    - decoder-events
+    - dns-events
+    - http-events
+    - smtp-events
+    - stream-events
+    - tls-events
+
+  default-log-dir: /var/log/suricata
+
+  outputs:
+    - eve-log:
+        enabled: yes
+        filetype: json
+        filename: eve.json
+        pcap-file: false
+        community-id: true
+        community-id-seed: 0
+        types:
+          - alert:
+              enabled: yes
+              payload: no
+              payload-buffer-size: 4096
+              payload-printable: yes
+              packet: yes
+              vars: no
+              engine: no
+          - http:
+              enabled: yes
+              extended: yes
+          - dns:
+              enabled: yes
+              query: yes
+              answer: yes
+          - tls:
+              enabled: yes
+              extended: yes
+          - ssh:
+              enabled: yes
+          - files:
+              enabled: yes
+              force-magic: yes
+          - flow:
+              enabled: no
+          - smtp:
+              enabled: no
+          - drop:
+              enabled: no
+
+  app-layer:
+    protocols:
+      dns:
+        enabled: yes
+      http:
+        enabled: yes
+        libhtp:
+          default-config:
+            personality: IDS
+            request-body-limit: 4096
+            response-body-limit: 10240
+          server-config: []
+      tls:
+        enabled: yes
+      ssh:
+        enabled: yes
+      smtp:
+        enabled: no
+      imap:
+        enabled: no
+      msn:
+        enabled: no
+      ftp:
+        enabled: yes
+
+  engine:
+    pool-size: 2048
+    runmode: autofp
+
+  detect:
+    profile: medium
+    custom-values:
+      toclient-src-groups: 1
+      toclient-dst-groups: 1
+      toserver-src-groups: 1
+      toserver-dst-groups: 1
+    sgh-mpm-context: auto
+    inspection-recursion-limit: 3000
+
+  threading:
+    set-cpu-affinity: no
+    detect-thread-ratio: 2.0
+
+  logging:
+    default-log-level: info
+    outputs:
+      - console:
+          enabled: yes
+      - file:
+          enabled: yes
+          filename: suricata.log

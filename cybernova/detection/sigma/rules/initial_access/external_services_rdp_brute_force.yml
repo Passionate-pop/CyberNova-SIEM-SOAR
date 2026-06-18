@@ -1,0 +1,26 @@
+title: RDP Brute Force Detection
+id: a1000001-0022-4000-8000-000000000022
+description: Detects multiple RDP authentication failures from a single source
+references:
+    - https://attack.mitre.org/techniques/T1133/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1133
+logsource:
+    category: authentication
+    product: windows
+detection:
+    selection:
+        EventID:
+            - 4625
+        LogonType: 10
+        LogonProcessName: NtLmSsp
+        Count|gt: 20
+    condition: selection
+falsepositives:
+    - Misconfigured RDP client
+    - Network connectivity issues
+    - Password expiration scripts
+level: high

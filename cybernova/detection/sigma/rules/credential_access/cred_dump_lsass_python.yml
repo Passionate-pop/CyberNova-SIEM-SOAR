@@ -1,0 +1,24 @@
+title: LSASS Memory Dump via Python Script
+id: a1000006-0005-4000-8000-000000000005
+description: Detects LSASS process memory dump using Python with ctypes or similar libraries
+references:
+    - https://attack.mitre.org/techniques/T1003/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1003.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\python.exe'
+        CommandLine|contains|all:
+            - 'lsass'
+            - 'MiniDump'
+            - 'dbghelp'
+    condition: selection
+falsepositives:
+    - Legitimate security research
+level: medium

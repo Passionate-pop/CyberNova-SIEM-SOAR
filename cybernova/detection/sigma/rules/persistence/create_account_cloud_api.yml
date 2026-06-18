@@ -1,0 +1,25 @@
+title: Cloud Account Creation via API
+id: a1000003-0049-4000-8000-000000000049
+description: Detects programmatic creation of cloud accounts via API calls
+references:
+    - https://attack.mitre.org/techniques/T1136/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1136
+    - attack.t1136.003
+logsource:
+    category: cloud
+    product: azure
+detection:
+    selection:
+        OperationName: 'Create User'
+        Caller|contains:
+            - 'graph.microsoft.com'
+            - 'management.azure.com'
+    condition: selection
+falsepositives:
+    - Authorized API-based user provisioning
+    - Automated identity management tools
+level: medium

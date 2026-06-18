@@ -1,0 +1,22 @@
+title: Security Support Provider Registry Modification
+id: a1000003-0015-4000-8000-000000000015
+description: Detects modification to Security Packages registry value for SSP persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.005
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: 'Security Packages'
+    condition: selection
+falsepositives:
+    - Legitimate security software additions
+    - Enterprise authentication configuration
+level: high

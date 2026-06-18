@@ -1,0 +1,23 @@
+title: CreateRestrictedToken / Anonymous Token Creation
+id: a1000004-0033-4000-8000-000000000033
+description: Detects creation of restricted or anonymous tokens via CreateRestrictedToken which may precede impersonation escalation
+references:
+    - https://attack.mitre.org/techniques/T1134/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1134.003
+logsource:
+    category: api_call
+    product: windows
+detection:
+    selection:
+        Api|contains:
+            - 'CreateRestrictedToken'
+            - 'NtCreateToken'
+    condition: selection
+falsepositives:
+    - Legitimate use by security software
+    - Application sandboxing
+level: medium

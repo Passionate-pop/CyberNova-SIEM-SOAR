@@ -1,0 +1,24 @@
+title: Registry Query For System Drive Information
+id: a1000007-0029-4000-8000-000000000029
+description: Detects registry queries for system drive volume and disk information
+references:
+    - https://attack.mitre.org/techniques/T1012/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.discovery
+    - attack.t1012
+logsource:
+    category: registry_query
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - 'SYSTEM\MountedDevices'
+            - 'SYSTEM\CurrentControlSet\Enum\STORAGE\Volume'
+            - 'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MountPoints2'
+    condition: selection
+falsepositives:
+    - Disk management tools
+    - Backup software enumeration
+level: low

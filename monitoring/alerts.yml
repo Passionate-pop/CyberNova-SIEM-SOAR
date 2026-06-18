@@ -1,0 +1,274 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CyberNova — Prometheus Alert Rules
+# ═══════════════════════════════════════════════════════════════════════════════
+
+groups:
+
+  - name: cybernova_service_health
+    interval: 30s
+    rules:
+
+      - alert: BackendDown
+        expr: up{job="cybernova-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend API is down"
+          description: "{{ $labels.instance }} unreachable for >1m"
+
+      - alert: WorkerDown
+        expr: up{job="cybernova-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker service is down"
+          description: "{{ $labels.instance }} unreachable for >2m"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Pipeline will fall back to DB mode — degraded performance"
+
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "All persistence is unavailable"
+
+
+  - name: cybernova_pipeline
+    interval: 30s
+    rules:
+
+      - alert: PipelineStopped
+        expr: cybernova_pipeline_running == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pipeline is not running"
+          description: "Event processing has stopped"
+
+      - alert: NoEventsIngested
+        expr: rate(cybernova_events_ingested_total[10m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No events ingested in 15 minutes"
+          description: "Check ingestion sources (syslog, file watcher, agents)"
+
+      - alert: HighProcessingLatency
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(
+              rate(
+                cybernova_processing_latency_seconds_bucket[5m]
+              )
+            ) by (le)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P99 latency exceeds 2 seconds"
+          description: "P99={{ $value }}s — possible bottleneck"
+
+      - alert: CriticalProcessingLatency
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(
+              rate(
+                cybernova_processing_latency_seconds_bucket[5m]
+              )
+            ) by (le)
+          ) > 10.0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "P99 latency exceeds 10 seconds"
+          description: "P99={{ $value }}s — pipeline degrading"
+
+      - alert: HighAlertRate
+        expr: rate(cybernova_alerts_created_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High alert generation rate"
+          description: "{{ $value }} alerts/s — possible active attack or false positive storm"
+
+      - alert: AlertRateSpike
+        expr: rate(cybernova_alerts_created_total[1m]) > rate(cybernova_alerts_created_total[10m]) * 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alert rate spike detected"
+          description: "Rate increased 5x in 1 minute — probable active attack"
+
+
+  - name: cybernova_streams
+    interval: 30s
+    rules:
+
+      - alert: StreamConsumerLag
+        expr: cybernova_stream_lag > 1000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stream consumer lag"
+          description: "{{ $labels.stream }} lag = {{ $value }} — consumer cannot keep up"
+
+      - alert: CriticalStreamLag
+        expr: cybernova_stream_lag > 10000
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical stream consumer lag"
+          description: "{{ $labels.stream }} lag = {{ $value }} — events will be dropped"
+
+      - alert: DeadLetterQueueGrowing
+        expr: cybernova_dlq_depth > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dead letter queue is growing"
+          description: "{{ $value }} events in DLQ — check worker health"
+
+
+  - name: cybernova_resources
+    interval: 60s
+    rules:
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes > 1e9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Process using >1GB memory"
+          description: "{{ $labels.job }} using {{ $value | humanize }}"
+
+      - alert: CriticalMemoryUsage
+        expr: process_resident_memory_bytes > 2e9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Process using >2GB memory"
+          description: "{{ $labels.job }} using {{ $value | humanize }} — OOM risk"
+
+      - alert: HighErrorRate
+        expr: rate(cybernova_errors_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate"
+          description: "{{ $value }} errors/s in {{ $labels.service }}"
+
+
+  - name: cybernova_security
+    interval: 60s
+    rules:
+
+      - alert: SOARDisabled
+        expr: cybernova_soar_enabled == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SOAR automation is disabled"
+          description: "Automated response actions will not fire"
+
+      - alert: NoActiveAgents
+        expr: cybernova_active_agents == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No active monitoring agents"
+          description: "No host agents have reported in the last 30 minutes"
+
+
+  # ──────────────────────────────────────────────────────────────
+  # NOTE: Infrastructure-level alerts (disk, certs, node health)
+  # require node_exporter + blackbox_exporter sidecars.
+  # Uncomment and deploy those exporters before enabling:
+  #   - node_filesystem_avail_bytes      (requires node_exporter)
+  #   - ssl_certificate_expiry_seconds    (requires blackbox_exporter)
+  #   - process_oom_kills_total           (requires node_exporter)
+  # ──────────────────────────────────────────────────────────────
+  - name: cybernova_infrastructure
+    interval: 60s
+    rules:
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Process CPU usage >80%"
+          description: "{{ $labels.job }} CPU at {{ $value | humanize }}% — potential resource contention"
+
+      - alert: CriticalCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Process CPU usage >95%"
+          description: "{{ $labels.job }} CPU at {{ $value | humanize }}% — immediate investigation needed"
+
+      - alert: HighMemoryUsageDetailed
+        expr: process_resident_memory_bytes / 1024 / 1024 > 1024  # >1GB
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Process memory >1GB"
+          description: "{{ $labels.job }} using {{ $value | humanize }} MB — growth trend should be investigated"
+
+      # ── Placeholder: requires node_exporter sidecar ──────────
+      # - alert: HighDiskPressure
+      #   expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+      #   for: 5m
+      #   labels: { severity: critical }
+      #   annotations:
+      #     summary: "Disk space below 10%"
+      #     description: "{{ $labels.device }} on {{ $labels.instance }} has {{ $value | humanize }}% free"
+
+      # ── Placeholder: requires blackbox_exporter sidecar ──────
+      # - alert: CertificateExpiring
+      #   expr: (ssl_certificate_expiry_seconds - time()) < 604800
+      #   for: 1h
+      #   labels: { severity: warning }
+      #   annotations:
+      #     summary: "SSL certificate expires in <7 days"
+      #     description: "Certificate for {{ $labels.instance }} expires in {{ $value | humanize }}"
+
+      # ── Placeholder: requires node_exporter sidecar ──────────
+      # - alert: OOMKillDetected
+      #   expr: increase(process_oom_kills_total[5m]) > 0
+      #   for: 0m
+      #   labels: { severity: critical }
+      #   annotations:
+      #     summary: "OOM killer triggered"
+      #     description: "{{ $value }} OOM kills in 5m on {{ $labels.instance }}"

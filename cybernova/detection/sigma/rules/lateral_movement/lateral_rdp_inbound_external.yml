@@ -1,0 +1,46 @@
+title: Inbound RDP Connection From External IP
+id: a1000008-0005-4000-8000-000000000005
+description: Detects inbound RDP connections originating from IP addresses outside the internal network, which may indicate external attackers pivoting through compromised hosts
+references:
+    - https://attack.mitre.org/techniques/T1021/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1021.001
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_event:
+        EventID: 3
+    selection_rdp:
+        Initiated: 'false'
+        DestinationPort: 3389
+    selection_external:
+        SourceIp|contains:
+            - '192.168.'
+            - '10.'
+            - '172.16.'
+            - '172.17.'
+            - '172.18.'
+            - '172.19.'
+            - '172.20.'
+            - '172.21.'
+            - '172.22.'
+            - '172.23.'
+            - '172.24.'
+            - '172.25.'
+            - '172.26.'
+            - '172.27.'
+            - '172.28.'
+            - '172.29.'
+            - '172.30.'
+            - '172.31.'
+            - '127.0.0.1'
+    condition: selection_event and selection_rdp and not selection_external
+falsepositives:
+    - VPN connections into corporate network
+    - Remote employees connecting via RDP gateway with external IP
+    - Cloud-hosted jump boxes with public IPs
+level: critical

@@ -1,0 +1,156 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# CyberNova — Production Override
+# ═════════════════════════════════════════════════════════════════════════════
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This override file:
+# 1. Removes public port mappings from DB/Redis (internal-only)
+# 2. Enforces secrets via .env (no dev fallback passwords)
+# 3. Sets resource limits appropriate for production
+# 4. Enables healthchecks with production-appropriate timing
+# ═════════════════════════════════════════════════════════════════════════════
+
+services:
+  postgres:
+    ports: []  # Remove public port mapping — internal only
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1g"
+        reservations:
+          cpus: "0.5"
+          memory: "256m"
+
+  redis:
+    ports: []  # Remove public port mapping — internal only
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512m"
+        reservations:
+          cpus: "0.25"
+          memory: "128m"
+
+  backend:
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      AGENT_PASSWORD: ${AGENT_PASSWORD:?AGENT_PASSWORD is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      ENVIRONMENT: production
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-10}
+      DB_EXPECTED_EPS: ${DB_EXPECTED_EPS:-10000}
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "1g"
+        reservations:
+          cpus: "0.5"
+          memory: "256m"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  frontend:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "128m"
+
+  nginx:
+    ports:
+      - "443:443"      # HTTPS only in production
+      - "8888:80"       # HTTP (health checks / redirect to HTTPS)
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "64m"
+
+  pipeline-worker:
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      ENVIRONMENT: production
+    deploy:
+      replicas: 2  # Run 2 workers for HA
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "512m"
+        reservations:
+          cpus: "0.25"
+          memory: "128m"
+
+  prometheus:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "256m"
+
+  grafana:
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "256m"
+
+  alertmanager:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "64m"
+
+  suricata:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "256m"
+
+  mailhog:
+    profiles:
+      - dev  # Disabled in production by default — use real SMTP instead
+
+# ── Production networks ────────────────────────────────────────────────────
+networks:
+  cybernova-network:
+    driver: bridge
+    # For production, consider:
+    # driver: overlay
+    # attachable: true
+
+# ── Production volumes ────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+    # For production, consider using a cloud volume driver:
+    # driver: rexray/ebs
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

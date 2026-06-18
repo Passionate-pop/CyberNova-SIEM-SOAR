@@ -1,0 +1,27 @@
+title: Protocol Downgrade Enabled
+id: a1000005-0024-4000-8000-000000000024
+description: Detects when insecure protocol versions such as SMB1 or TLS 1.0 are enabled, facilitating downgrade attacks.
+references:
+    - https://attack.mitre.org/techniques/T1562/010/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1562
+    - attack.t1562.010
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection_smb1:
+        TargetObject|contains: 'SMB1'
+        Details: '1'
+    selection_tls:
+        TargetObject|contains:
+            - '\TLS 1.0'
+            - '\Schannel\Protocols\TLS 1.0'
+        Details: '0'
+    condition: selection_smb1 or selection_tls
+falsepositives:
+    - Legacy application compatibility requirements
+level: medium

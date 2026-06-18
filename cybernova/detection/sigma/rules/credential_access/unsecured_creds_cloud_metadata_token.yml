@@ -1,0 +1,25 @@
+title: Cloud Metadata Service Token Retrieval
+id: a1000006-0028-4000-8000-000000000028
+description: Detects retrieval of access tokens from cloud instance metadata service
+references:
+    - https://attack.mitre.org/techniques/T1552/005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1552.005
+logsource:
+    category: network_connection
+    product: linux
+detection:
+    selection:
+        DestinationIp: '169.254.169.254'
+        DestinationUrl|contains:
+            - '/metadata/identity/oauth2/token'
+            - '/computeMetadata/v1/instance/service-accounts/default/token'
+            - '/latest/meta-data/iam/security-credentials'
+    condition: selection
+falsepositives:
+    - Cloud instance initialization
+    - Authorized application authentication
+level: critical

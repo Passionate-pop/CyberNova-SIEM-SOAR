@@ -1,0 +1,29 @@
+title: Link to Known Malicious Domain in Email
+id: a1000001-0028-4000-8000-000000000028
+description: Detects emails containing URLs pointing to known malicious or suspicious domains
+references:
+    - https://attack.mitre.org/techniques/T1566/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1566
+logsource:
+    category: email
+    product: generic
+detection:
+    selection:
+        URLDomain|contains:
+            - .xyz
+            - .top
+            - .gq
+            - .ml
+            - .cf
+            - .tk
+            - .click
+            - .download
+    condition: selection
+falsepositives:
+    - Legitimate email from new TLD registrants
+    - Marketing emails using short domains
+level: medium

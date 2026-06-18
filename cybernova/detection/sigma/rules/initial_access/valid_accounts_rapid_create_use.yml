@@ -1,0 +1,21 @@
+title: Account Created and Immediately Used
+id: a1000001-0020-4000-8000-000000000020
+description: Detects user accounts that are created and then actively used within a short timeframe
+references:
+    - https://attack.mitre.org/techniques/T1078/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1078
+logsource:
+    category: authentication
+    product: windows
+detection:
+    selection:
+        EventID: 4720
+    condition: selection
+falsepositives:
+    - Automated user provisioning scripts
+    - New employee onboarding processes
+level: low

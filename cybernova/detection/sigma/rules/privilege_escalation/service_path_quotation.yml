@@ -1,0 +1,23 @@
+title: Unquoted Service Path Exploitation
+id: a1000004-0019-4000-8000-000000000019
+description: Detects creation of binaries in paths matching unquoted Windows service paths which can lead to privilege escalation
+references:
+    - https://attack.mitre.org/techniques/T1068/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1068
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains|all:
+            - ':\Program Files\'
+            - '\Program '
+        TargetFilename|endswith: '.exe'
+    condition: selection
+falsepositives:
+    - Legitimate software installation in paths with spaces
+level: medium

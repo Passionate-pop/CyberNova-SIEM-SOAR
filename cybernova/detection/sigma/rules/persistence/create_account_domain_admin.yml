@@ -1,0 +1,26 @@
+title: Domain User Added to Domain Admins Group
+id: a1000003-0046-4000-8000-000000000046
+description: Detects a domain user being added to a privileged domain group like Domain Admins
+references:
+    - https://attack.mitre.org/techniques/T1136/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1136
+    - attack.t1136.002
+logsource:
+    category: security
+    product: windows
+detection:
+    selection:
+        EventID: 4732
+        GroupName|contains:
+            - 'Domain Admins'
+            - 'Enterprise Admins'
+            - 'Schema Admins'
+    condition: selection
+falsepositives:
+    - Authorized IT administrator promotion
+    - Legacy domain migration activities
+level: critical

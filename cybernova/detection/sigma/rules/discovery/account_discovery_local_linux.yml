@@ -1,0 +1,28 @@
+title: Local User Enumeration On Linux
+id: a1000007-0004-4000-8000-000000000004
+description: Detects local user enumeration on Linux via /etc/passwd, getent, or id commands
+references:
+    - https://attack.mitre.org/techniques/T1087/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.discovery
+    - attack.t1087.001
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        Image|endswith:
+            - /bin/cat
+            - /usr/bin/getent
+            - /usr/bin/id
+        CommandLine|contains:
+            - /etc/passwd
+            - passwd
+            - 'id '
+    condition: selection
+falsepositives:
+    - System administration activity
+    - Monitoring scripts
+level: low

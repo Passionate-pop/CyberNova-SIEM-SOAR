@@ -1,0 +1,31 @@
+title: WebSocket Connection to External Host
+id: a1000010-0011-4000-8000-000000000011
+description: Detects WebSocket connections to external hosts, which may indicate C2 communication using persistent bidirectional channels
+references:
+    - https://attack.mitre.org/techniques/T1071/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.001
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_upgrade:
+        http_header|contains: 'Upgrade: websocket'
+    selection_ws_scheme:
+        url|contains:
+            - 'ws://'
+            - 'wss://'
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: (selection_upgrade or selection_ws_scheme) and selection_external
+falsepositives:
+    - Legitimate web applications using WebSockets
+    - Real-time collaboration tools
+    - Online gaming platforms
+level: low

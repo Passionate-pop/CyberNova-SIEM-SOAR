@@ -1,0 +1,28 @@
+title: WiFi Profile Password Extraction
+id: a1000006-0033-4000-8000-000000000033
+description: Detects extraction of WiFi profile passwords using netsh or similar tools
+references:
+    - https://attack.mitre.org/techniques/T1552/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1552.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'netsh'
+            - 'wlan'
+            - 'show'
+            - 'profile'
+        CommandLine|contains:
+            - 'key=clear'
+            - 'key='
+    condition: selection
+falsepositives:
+    - WiFi troubleshooting
+    - Network administration
+level: medium

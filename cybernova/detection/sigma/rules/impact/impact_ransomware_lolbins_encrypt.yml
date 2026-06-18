@@ -1,0 +1,44 @@
+title: LOLBins Used for File Encryption
+id: a1000012-0010-4000-8000-000000000010
+description: Detects living-off-the-land binaries (LOLBins) being used for file encryption operations, such as certutil, powershell, msiexec, or wmic leveraged for ransomware encryption.
+references:
+    - https://attack.mitre.org/techniques/T1486/003/
+    - https://lolbas-project.github.io/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1486.003
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_certutil:
+        Image|endswith: '\certutil.exe'
+        CommandLine|contains:
+            - '-encode'
+            - '-decode'
+            - 'xor'
+    selection_msiexec:
+        Image|endswith: '\msiexec.exe'
+        CommandLine|contains:
+            - 'encrypt'
+            - 'crypt'
+    selection_powershell:
+        Image|endswith: '\powershell.exe'
+        CommandLine|contains|all:
+            - 'Get-ChildItem'
+            - 'Encrypt'
+        CommandLine|contains:
+            - 'Recurse'
+            - '|'
+    selection_wmic:
+        Image|endswith: '\wmic.exe'
+        CommandLine|contains:
+            - 'encrypt'
+    condition: 1 of selection_*
+falsepositives:
+    - System administrators using certutil for legitimate file encoding
+    - Legitimate PowerShell automation scripts
+    - Software installers using msiexec for setup
+level: medium

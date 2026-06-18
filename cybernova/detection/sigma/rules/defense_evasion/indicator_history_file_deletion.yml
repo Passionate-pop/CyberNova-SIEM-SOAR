@@ -1,0 +1,25 @@
+title: History Files Deleted
+id: a1000005-0045-4000-8000-000000000045
+description: Detects deletion of shell history files (.bash_history, .zsh_history, .sh_history) on Linux and macOS.
+references:
+    - https://attack.mitre.org/techniques/T1070/010/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1070
+    - attack.t1070.010
+logsource:
+    category: file_event
+    product: linux
+detection:
+    selection:
+        TargetFilename|endswith:
+            - '.bash_history'
+            - '.zsh_history'
+            - '.sh_history'
+            - '.python_history'
+    condition: selection
+falsepositives:
+    - User legitimately clearing shell history
+level: medium

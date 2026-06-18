@@ -1,0 +1,26 @@
+title: Federated Identity Account Creation
+id: a1000003-0050-4000-8000-000000000050
+description: Detects creation of federated identity or SSO accounts for cloud persistence
+references:
+    - https://attack.mitre.org/techniques/T1136/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1136
+    - attack.t1136.003
+logsource:
+    category: cloud
+    product: gcp
+detection:
+    selection:
+        EventName|contains:
+            - 'CreateUser'
+            - 'CreateServiceAccount'
+            - 'CreateIdentityProvider'
+        ResourceType|contains: 'iam'
+    condition: selection
+falsepositives:
+    - Authorized SSO integration setup
+    - Multi-cloud federation configuration
+level: high

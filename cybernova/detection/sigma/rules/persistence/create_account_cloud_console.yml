@@ -1,0 +1,23 @@
+title: Cloud Console User Creation
+id: a1000003-0048-4000-8000-000000000048
+description: Detects creation of a user account via cloud provider management console
+references:
+    - https://attack.mitre.org/techniques/T1136/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1136
+    - attack.t1136.003
+logsource:
+    category: cloud
+    product: aws
+detection:
+    selection:
+        EventName: 'CreateUser'
+        EventSource|endswith: '.iam.amazonaws.com'
+    condition: selection
+falsepositives:
+    - Authorized user account provisioning
+    - Automated CI/CD user creation
+level: medium

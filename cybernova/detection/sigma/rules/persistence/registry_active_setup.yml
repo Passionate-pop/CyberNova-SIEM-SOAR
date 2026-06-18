@@ -1,0 +1,22 @@
+title: Active Setup Registry Persistence
+id: a1000003-0007-4000-8000-000000000007
+description: Detects modification to Active Setup registry keys for userless install persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.001
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: 'Microsoft\Active Setup\Installed Components'
+    condition: selection
+falsepositives:
+    - Legitimate software adding Active Setup entries
+    - Browser or shell extension registrations
+level: medium

@@ -1,0 +1,31 @@
+title: Office File Opened from Email Attachment
+id: a1000002-0025-4000-8000-000000000025
+description: Detects Office applications being launched from the email client, indicating user opened an email attachment
+references:
+    - https://attack.mitre.org/techniques/T1204/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.execution
+    - attack.t1204.002
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        ParentImage|endswith:
+            - \OUTLOOK.EXE
+            - \THUNDERBIRD.EXE
+        Image|endswith:
+            - \WINWORD.EXE
+            - \EXCEL.EXE
+            - \POWERPNT.EXE
+            - \MSPUB.EXE
+            - \VISIO.EXE
+            - \ACROBAT.EXE
+            - \ACRORD32.EXE
+    condition: selection
+falsepositives:
+    - User legitimately opening trusted email attachments
+    - Email client preview pane auto-launching documents
+level: medium

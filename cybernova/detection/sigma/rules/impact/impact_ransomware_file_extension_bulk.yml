@@ -1,0 +1,32 @@
+title: Bulk File Extension Changes Indicating Ransomware
+id: a1000012-0001-4000-8000-000000000001
+description: Detects bulk file extension changes typically associated with ransomware encryption, such as .encrypted, .locked, .crypt, or other known ransomware extensions across many files in a short period.
+references:
+    - https://attack.mitre.org/techniques/T1486/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1486.001
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        EventID: 11
+        TargetFilename|endswith:
+            - '.encrypted'
+            - '.locked'
+            - '.crypt'
+            - '.cryp1'
+            - '.lockbit'
+            - '.conti'
+            - '.enc'
+        Image|endswith:
+            - '\svchost.exe'
+            - '\wmiprvse.exe'
+    condition: selection
+falsepositives:
+    - Legitimate file conversion tools bulk renaming files
+    - Backup software temporarily renaming files
+level: high

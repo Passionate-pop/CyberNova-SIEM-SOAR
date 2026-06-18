@@ -1,0 +1,25 @@
+title: Large HTTPS Upload to External Host
+id: a1000011-0003-4000-8000-000000000003
+description: Detects large outbound HTTPS connections to external hosts which may indicate encrypted data exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1048/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1048
+    - attack.t1048.002
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Initiated: 'true'
+        DestinationPort: 443
+        BytesSent|gte: 104857600
+    condition: selection
+falsepositives:
+    - Large software updates or downloads from external sources
+    - Cloud backup services performing initial sync
+    - Large email attachments via webmail
+level: medium

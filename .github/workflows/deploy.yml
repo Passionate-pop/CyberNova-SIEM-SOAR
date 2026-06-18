@@ -1,0 +1,228 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment target"
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: "Docker image tag to deploy"
+        required: true
+        default: latest
+      skip_helm_tests:
+        description: "Skip Helm chart tests"
+        type: boolean
+        default: false
+
+  workflow_run:
+    workflows: ["Release Pipeline"]
+    branches: [main]
+    types:
+      - completed
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ── Stage 1: Prepare Deployment ─────────────────────────────────────
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.name }}
+      version: ${{ steps.version.outputs.tag }}
+      namespace: ${{ steps.namespace.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "name=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=ci-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine namespace
+        id: namespace
+        run: |
+          ENV="${{ steps.env.outputs.name }}"
+          echo "name=cybernova-${ENV}" >> "$GITHUB_OUTPUT"
+
+  # ── Stage 2: Validate Helm Chart ────────────────────────────────────
+  helm-lint:
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+
+      - name: Lint Helm chart
+        run: |
+          helm lint helm/cybernova/ \
+            --set image.repository=ghcr.io/${{ github.repository }} \
+            --set image.tag=${{ needs.prepare.outputs.version }}
+
+      - name: Template Helm chart (staging)
+        run: |
+          helm template cybernova helm/cybernova/ \
+            --namespace ${{ needs.prepare.outputs.namespace }} \
+            --set image.repository=ghcr.io/${{ github.repository }} \
+            --set image.tag=${{ needs.prepare.outputs.version }} \
+            --set config.environment=${{ needs.prepare.outputs.environment }} \
+            > /dev/null
+
+  # ── Stage 3: Run Smoke Tests ────────────────────────────────────────
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cybernova_test
+          POSTGRES_USER: cybernova
+          POSTGRES_PASSWORD: cybernova_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Smoke tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://cybernova:cybernova_test@localhost:5432/cybernova_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: smoke-test-secret
+          ENVIRONMENT: test
+        run: |
+          python -m pytest tests/e2e/ -v --timeout=120 -x
+
+  # ── Stage 4: Deploy ─────────────────────────────────────────────────
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [prepare, helm-lint, smoke-test]
+    if: ${{ !cancelled() && (needs.smoke-test.result == 'success' || needs.smoke-test.result == 'skipped') }}
+    environment:
+      name: ${{ needs.prepare.outputs.environment }}
+      url: https://${{ needs.prepare.outputs.environment }}.cybernova.io
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets[format('KUBECONFIG_{0}', needs.prepare.outputs.environment)] }}
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install cybernova helm/cybernova/ \
+            --namespace ${{ needs.prepare.outputs.namespace }} \
+            --create-namespace \
+            --wait \
+            --timeout 15m \
+            --set image.repository=ghcr.io/${{ github.repository }} \
+            --set image.tag=${{ needs.prepare.outputs.version }} \
+            --set config.environment=${{ needs.prepare.outputs.environment }} \
+            --set config.logLevel=${{ needs.prepare.outputs.environment == 'production' && 'INFO' || 'DEBUG' }} \
+            --set replicaCount=${{ needs.prepare.outputs.environment == 'production' && 5 || 2 }} \
+            --set worker.replicaCount=${{ needs.prepare.outputs.environment == 'production' && 3 || 1 }} \
+            --set autoscaling.enabled=${{ needs.prepare.outputs.environment == 'production' && 'true' || 'false' }}
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/cybernova \
+            -n ${{ needs.prepare.outputs.namespace }} \
+            --timeout=5m
+          kubectl get pods \
+            -n ${{ needs.prepare.outputs.namespace }} \
+            -l app.kubernetes.io/name=cybernova
+
+      - name: Run Helm tests
+        if: ${{ !inputs.skip_helm_tests }}
+        run: |
+          helm test cybernova \
+            -n ${{ needs.prepare.outputs.namespace }} \
+            --timeout 5m
+
+      - name: Health check after deployment
+        run: |
+          POD_NAME=$(kubectl get pods \
+            -n ${{ needs.prepare.outputs.namespace }} \
+            -l app.kubernetes.io/name=cybernova \
+            -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec $POD_NAME \
+            -n ${{ needs.prepare.outputs.namespace }} \
+            -- python3 -c "
+          import urllib.request
+          resp = urllib.request.urlopen('http://localhost:8000/health', timeout=10)
+          assert resp.status == 200, f'Health check failed: {resp.status}'
+          print(f'Health check passed: {resp.status}')
+          "
+
+      - name: Post-deployment Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: always()
+
+  # ── Stage 5: Post-Deploy Validation ─────────────────────────────────
+  validate:
+    runs-on: ubuntu-latest
+    needs: [deploy, prepare]
+    steps:
+      - name: Run E2E tests against deployed environment
+        run: |
+          pip install pytest pytest-asyncio httpx websockets
+          python -m pytest tests/e2e/ -v --timeout=180 \
+            --base-url https://${{ needs.prepare.outputs.environment }}.cybernova.io
+        env:
+          API_TOKEN: ${{ secrets[format('API_TOKEN_{0}', needs.prepare.outputs.environment)] }}
+
+      - name: Run synthetic monitoring checks
+        run: |
+          pip install requests
+          python scripts/healthcheck.py \
+            --url https://${{ needs.prepare.outputs.environment }}.cybernova.io \
+            --token ${{ secrets[format('API_TOKEN_{0}', needs.prepare.outputs.environment)] }}

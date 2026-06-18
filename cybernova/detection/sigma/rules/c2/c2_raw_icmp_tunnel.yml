@@ -1,0 +1,39 @@
+title: ICMP Tunneling Detection
+id: a1000010-0033-4000-8000-000000000033
+description: Detects ICMP packets with unusually large payloads or abnormal frequency, indicative of ICMP tunneling for C2 communication
+references:
+    - https://attack.mitre.org/techniques/T1095/
+    - https://attack.mitre.org/techniques/T1095/001/
+    - https://attack.mitre.org/techniques/T1048/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1095.001
+    - attack.t1048
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_large_packet:
+        icmp_type:
+            - 8
+            - 0
+        icmp_payload_size|gte: 1000
+    selection_frequency:
+        icmp_type:
+            - 8
+            - 0
+        timeframe: 60s
+        icmp_count|gte: 100
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection_external and (selection_large_packet or selection_frequency)
+falsepositives:
+    - Network performance monitoring tools
+    - VPN path MTU discovery
+    - Large ping packets from diagnostics
+level: high

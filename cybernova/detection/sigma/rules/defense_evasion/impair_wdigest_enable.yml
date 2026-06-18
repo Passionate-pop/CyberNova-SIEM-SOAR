@@ -1,0 +1,22 @@
+title: WDigest Credential Caching Enabled
+id: a1000005-0027-4000-8000-000000000027
+description: Detects when WDigest authentication is enabled via registry, forcing cleartext credential caching in LSASS.
+references:
+    - https://attack.mitre.org/techniques/T1562/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1562
+    - attack.t1562.001
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|endswith: '\Control\SecurityProviders\WDigest\UseLogonCredential'
+        Details: '1'
+    condition: selection
+falsepositives:
+    - Legitimate enabling for legacy application compatibility
+level: high

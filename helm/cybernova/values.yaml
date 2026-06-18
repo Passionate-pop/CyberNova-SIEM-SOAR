@@ -1,0 +1,187 @@
+replicaCount: 3
+
+worker:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 2
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+image:
+  repository: cybernova/platform
+  tag: "2.0.0"
+  pullPolicy: Always
+  pullSecrets: []
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+config:
+  environment: production
+  logLevel: INFO
+  secretKey: "CHANGE_ME_USE_ENV_SECRET_KEY"  # Override with --set config.secretKey=<your-secret-key>
+  appVersion: "2.0.0"
+  corsOrigins: "http://localhost:3000,http://localhost:5173,http://localhost:8080"
+
+ingestion:
+  syslogEnabled: false
+  logWatchPaths: []
+
+agent:
+  managerEnabled: true
+
+threatIntel:
+  feedsEnabled: true
+  pollInterval: 3600
+
+retention:
+  enabled: true
+  interval: 86400
+
+anomaly:
+  enabled: true
+  windowMinutes: 60
+
+features:
+  marketplaceEnabled: true
+  genaiEnabled: false
+  multiRegionEnabled: false
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  s3Bucket: ""
+  s3Region: us-east-1
+  retentionDays: 30
+
+multiRegion:
+  enabled: false
+  region: us-east-1
+  peerRegions: []
+  replicationTopic: "cybernova-global-events"
+
+service:
+  name: cybernova
+  type: ClusterIP
+  host: "0.0.0.0"
+  port: 8000
+  metricsPort: 8000
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: cybernova.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+pdb:
+  enabled: true
+  minAvailable: 2
+  workerMinAvailable: 1
+
+postgresql:
+  enabled: true
+  poolSize: 20
+  maxOverflow: 10
+  auth:
+    database: cybernova
+    username: cybernova
+    password: ""
+    existingSecret: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 100Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 4
+        memory: 8Gi
+      requests:
+        cpu: 1
+        memory: 2Gi
+
+redis:
+  enabled: true
+  poolSize: 20
+  auth:
+    enabled: true
+    password: "" # Must be set via --set redis.auth.password=<strong-password> or external secret
+  architecture: standalone
+  master:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 2
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    additionalLabels: {}
+
+resources:
+  app:
+    limits:
+      cpu: 4
+      memory: 4Gi
+    requests:
+      cpu: 1
+      memory: 1Gi
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - cybernova
+          topologyKey: kubernetes.io/hostname

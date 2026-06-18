@@ -1,0 +1,29 @@
+title: High Entropy Network Traffic
+id: a1000010-0027-4000-8000-000000000027
+description: Detects network traffic with abnormally high entropy payload content, indicating encrypted or obfuscated C2 communication
+references:
+    - https://attack.mitre.org/techniques/T1573/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1573
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        payload_entropy|gte: 7.0
+        payload_length|gte: 500
+        protocol: TCP
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection and selection_external
+falsepositives:
+    - Compressed file transfers
+    - Multimedia streaming
+    - Encrypted backup traffic
+level: medium

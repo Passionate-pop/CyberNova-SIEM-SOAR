@@ -1,0 +1,29 @@
+title: Accessibility Tool Binary Replacement
+id: a1000003-0025-4000-8000-000000000025
+description: Detects replacement of accessibility tool binaries like sethc or magnifier for persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.001
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|endswith:
+            - '\sethc.exe'
+            - '\magnify.exe'
+            - '\magnifier.exe'
+            - '\narrator.exe'
+            - '\osk.exe'
+            - '\display_switch.exe'
+            - '\utilman.exe'
+    condition: selection
+falsepositives:
+    - Windows update replacing accessibility files
+    - System file integrity checks
+level: critical

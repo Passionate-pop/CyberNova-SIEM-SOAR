@@ -1,0 +1,157 @@
+# ── Secrets & credentials ────────────────────────────────────
+# Never commit environment files with real secrets
+.env
+.env.*
+# But DO commit the example templates (users copy these)
+!.env.example
+!.env.production.example
+
+# Password/secret files — never commit
+secretsadmin_password.txt
+
+# JWT tokens — never commit live tokens
+token.txt
+token_saved.txt
+*.token
+.env.local
+.env.development
+.env.test
+
+# SSL certs — regenerate per environment, don't store in git
+nginx/ssl/cert.pem
+nginx/ssl/key.pem
+nginx/ssl/dhparam.pem
+nginx/ssl/*.csr
+nginx/ssl/*.srl
+nginx/ssl/ca.pem
+nginx/ssl/ca-key.pem
+
+# Docker secrets (kept locally, never committed)
+secrets/
+!secrets/.gitkeep
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+*.pot
+*.pyz
+*.pyzw
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# ── Node / Frontend ──────────────────────────────────────────
+node_modules/
+cybernova-frontend/node_modules/
+cybernova-frontend/dist/
+frontend-dist/
+
+# ── Testing & Coverage ───────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+coverage/
+coverage.xml
+htmlcov/
+cover/
+*.log
+.tox/
+.nox/
+.hypothesis/
+
+# ── IDE & Editor ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.orig
+*.bak
+.project
+.pydevproject
+*.sublime-*
+*.code-workspace
+.history/
+
+
+# ── OS artifacts ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+*.lnk
+nul
+NUL
+*.cab
+*.msi
+
+# ── Docker & Container ──────────────────────────────────────
+agent/
+helm/cybernova/charts/
+*.lock
+
+# ── Documentation build artifacts ────────────────────────────
+docs/_build/
+docs/_site/
+docs/api/  # auto-generated
+
+# ── Runtime & Stateful data ──────────────────────────────────
+*.db
+*.db-journal
+*.sqlite3
+data/
+logs/
+*_log.txt
+*.log
+grafana_data/
+prometheus_data/
+alertmanager_data/
+*.pid
+
+# ── Build artifacts ──────────────────────────────────────────
+cybernova-backend.egg-info/
+*.spec
+*.exe
+*.dll
+*.so
+*.pyd
+*.pyo
+cybernova-driver/*.sys
+cybernova-driver/*.inf
+
+# ── System & Virtualization ───────────────────────────────────
+.VirtualBox/
+VirtualBox VMs/
+
+# ── Security scan reports (generated, not source) ───────────
+bandit_*.json
+bandit_*.txt
+
+# ── Misc tooling ─────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+.pylint.d/
+instance/
+.webassets-cache
+.scrapy
+
+# ── Network / Config directories (user-specific) ──────────────
+.kube/
+.config/
+.cache/
+.local/
+.npm/

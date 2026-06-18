@@ -1,0 +1,48 @@
+title: Firmware/Hardware Wipe Attempt
+id: a1000012-0013-4000-8000-000000000013
+description: Detects attempts to perform firmware-level wiping or hardware destruction, including BIOS/UEFI manipulation, S.M.A.R.T. attribute manipulation, and disk firmware commands.
+references:
+    - https://attack.mitre.org/techniques/T1485/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1485.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_hdparm:
+        CommandLine|contains:
+            - '--security-erase'
+            - '--security-set-pass'
+            - 'hdparm'
+    selection_smart:
+        CommandLine|contains|all:
+            - 'ATA'
+            - 'SMART'
+            - 'WDC'
+            - 'SanDisk'
+            - 'Intel'
+            - 'security'
+            - 'erase'
+    selection_flash:
+        Image|endswith:
+            - '\flashrom.exe'
+            - '\nvflash.exe'
+            - '\afudos.exe'
+        CommandLine|contains:
+            - 'erase'
+            - 'wipe'
+            - 'write'
+    selection_wmi_firmware:
+        Image|endswith: '\powershell.exe'
+        CommandLine|contains|all:
+            - 'Win32_BIOS'
+            - 'Set'
+    condition: 1 of selection_*
+falsepositives:
+    - Legitimate firmware update utilities
+    - Hardware maintenance by authorized IT staff
+    - Disk diagnostics and repair tools
+level: high

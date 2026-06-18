@@ -1,0 +1,25 @@
+title: PPID Spoofing / Parent PID Mismatch
+id: a1000004-0034-4000-8000-000000000034
+description: Detects processes created with a parent PID that does not match the expected parent indicating PPID spoofing for privilege escalation
+references:
+    - https://attack.mitre.org/techniques/T1134/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1134.004
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+        ParentImage|endswith: '\explorer.exe'
+        ParentImage|contains:
+            - '\System32\'
+    condition: selection
+falsepositives:
+    - Legitimate parent-child process relationships
+level: medium

@@ -1,0 +1,26 @@
+title: Data Posted to External API Endpoint
+id: a1000011-0004-4000-8000-000000000004
+description: Detects sensitive data being sent to external API endpoints via HTTPS POST requests
+references:
+    - https://attack.mitre.org/techniques/T1048/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1048
+    - attack.t1048.002
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Initiated: 'true'
+        DestinationPort: 443
+        Method: 'POST'
+        RequestBodySize|gte: 65536
+    condition: selection
+falsepositives:
+    - Legitimate API integrations with SaaS platforms
+    - Telemetry or analytics data submission
+    - Backup or sync API calls
+level: medium

@@ -1,0 +1,27 @@
+title: Cloud Provider Credential Files
+id: a1000006-0023-4000-8000-000000000023
+description: Detects access to cloud provider credential files (AWS credentials, GCP service account keys, Azure profiles)
+references:
+    - https://attack.mitre.org/techniques/T1552/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1552.001
+logsource:
+    category: file_access
+    product: linux
+detection:
+    selection:
+        TargetFilename|contains:
+            - '.aws/credentials'
+            - '.aws/config'
+            - '.gcp/'
+            - 'service-account.json'
+            - '.azure/azureProfile.json'
+            - '.azure/credentials'
+    condition: selection
+falsepositives:
+    - Legitimate cloud CLI usage
+    - Infrastructure-as-code operations
+level: high

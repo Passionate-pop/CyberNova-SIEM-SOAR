@@ -1,0 +1,24 @@
+title: Startup Folder File Addition
+id: a1000003-0004-4000-8000-000000000004
+description: Detects file creation in the user or system startup folder for persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.001
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains:
+            - '\Microsoft\Windows\Start Menu\Programs\Startup\'
+            - '\Microsoft\Windows\Start Menu\Programs\StartUp\'
+    condition: selection
+falsepositives:
+    - Legitimate software adding shortcuts
+    - User intentionally placing files in startup
+level: medium

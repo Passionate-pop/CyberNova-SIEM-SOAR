@@ -1,0 +1,27 @@
+{{- if .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cybernova.fullname" . }}-app
+  labels:
+    {{- include "cybernova.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "cybernova.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: app
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cybernova.fullname" . }}-worker
+  labels:
+    {{- include "cybernova.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.workerMinAvailable | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "cybernova.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+{{- end }}

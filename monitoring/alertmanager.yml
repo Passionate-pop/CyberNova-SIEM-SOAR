@@ -1,0 +1,125 @@
+# CyberNova — Alertmanager Production Configuration
+# ══════════════════════════════════════════════════════════════
+# Routing: severity-based with escalation paths
+# Receivers: Email (primary), future Slack/Webhook extensibility
+# Grouping: prevents alert storms
+# ══════════════════════════════════════════════════════════════
+
+global:
+  smtp_smarthost: "mailhog:1025"
+  smtp_from: "alertmanager@cybernova.io"
+  smtp_auth_username: ""
+  smtp_auth_password: ""
+  smtp_require_tls: false
+
+  # Default resolve timeout
+  resolve_timeout: 5m
+
+# ── Route Tree ───────────────────────────────────────────────
+route:
+  receiver: "default-null"   # drop unclassified by default
+  group_by: ["namespace", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # ── Critical: immediate, no grouping delay ──────────────
+    - match:
+        severity: critical
+      receiver: "critical-email"
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 15m
+      continue: true            # also match sub-routes
+
+    # ── Warning: grouped, delayed ───────────────────────────
+    - match:
+        severity: warning
+      receiver: "warning-email"
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 6h
+
+    # ── Info: daily summary only ────────────────────────────
+    - match:
+        severity: info
+      receiver: "default-null"
+      repeat_interval: 24h
+
+# ── Inhibit Rules ────────────────────────────────────────────
+# Silence warning/info alerts when their parent critical is firing
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ["namespace", "alertname"]
+
+  - source_match:
+      severity: critical
+    target_match:
+      severity: info
+    equal: ["namespace", "alertname"]
+
+# ── Receivers ────────────────────────────────────────────────
+receivers:
+  # Drop alerts with no matching route (safety net)
+  - name: "default-null"
+
+  # ── Critical alerts → email immediately ──────────────────
+  - name: "critical-email"
+    email_configs:
+      - to: "admin@cybernova.local"
+        send_resolved: true
+        headers:
+          subject: '[CRITICAL] {{ .GroupLabels.alertname }} — {{ .GroupLabels.namespace }}'
+        html: |
+          <h2>Critical Alert: {{ .GroupLabels.alertname }}</h2>
+          <p><strong>Namespace:</strong> {{ .GroupLabels.namespace }}</p>
+          <p><strong>Started:</strong> {{ .StartsAt }}</p>
+          <hr>
+          <h3>Firing Alerts:</h3>
+          {{ range .Alerts }}
+          <div style="border-left:4px solid #e74c3c;padding-left:12px;margin:8px 0">
+            <p><strong>{{ .Annotations.summary }}</strong></p>
+            <pre style="background:#f5f5f5;padding:8px">{{ .Annotations.description }}</pre>
+            <p><small>Severity: {{ .Labels.severity }} | Instance: {{ .Labels.instance }}</small></p>
+          </div>
+          {{ end }}
+          <hr>
+          <p style="color:#888">CyberNova Alertmanager — {{ .ExternalURL }}</p>
+
+  # ── Warning alerts → email grouped ───────────────────────
+  - name: "warning-email"
+    email_configs:
+      - to: "admin@cybernova.local"
+        send_resolved: false
+        headers:
+          subject: '[WARNING] {{ .GroupLabels.alertname }} ({{ .Alerts | len }} alerts)'
+        html: |
+          <h2>Warning: {{ .GroupLabels.alertname }}</h2>
+          <p><strong>Namespace:</strong> {{ .GroupLabels.namespace }}</p>
+          <p><strong>Alert Count:</strong> {{ .Alerts | len }}</p>
+          <hr>
+          <ul>
+          {{ range .Alerts }}
+          <li><strong>{{ .Annotations.summary }}</strong> — {{ .Annotations.description }}</li>
+          {{ end }}
+          </ul>
+          <hr>
+          <p style="color:#888">CyberNova Alertmanager — {{ .ExternalURL }}</p>
+
+  # ── Slack receiver (extensibility placeholder) ───────────
+  # - name: "critical-slack"
+  #   slack_configs:
+  #     - channel: "#security-alerts"
+  #       send_resolved: true
+  #       title: '🚨 {{ .GroupLabels.alertname }}'
+  #       text: '{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}'
+
+  # ── PagerDuty receiver (extensibility placeholder) ────────
+  # - name: "critical-pagerduty"
+  #   pagerduty_configs:
+  #     - routing_key: "${PAGERDUTY_KEY}"
+  #       severity: critical

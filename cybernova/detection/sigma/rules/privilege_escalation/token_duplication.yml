@@ -1,0 +1,25 @@
+title: Token Duplication via DuplicateToken(Ex)
+id: a1000004-0027-4000-8000-000000000027
+description: Detects use of DuplicateToken or DuplicateTokenEx Windows APIs for token duplication which can be used for privilege escalation
+references:
+    - https://attack.mitre.org/techniques/T1134/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1134.001
+logsource:
+    category: process_access
+    product: windows
+detection:
+    selection:
+        GrantedAccess|contains:
+            - 'TOKEN_DUPLICATE'
+            - '0x2'
+        SourceImage|contains:
+            - '\Temp\'
+            - '\Users\Public\'
+    condition: selection
+falsepositives:
+    - Legitimate applications managing tokens
+level: medium

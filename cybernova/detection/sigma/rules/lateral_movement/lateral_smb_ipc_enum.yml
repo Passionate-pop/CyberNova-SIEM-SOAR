@@ -1,0 +1,31 @@
+title: SMB IPC$ Share Enumeration Net Use
+id: a1000008-0009-4000-8000-000000000009
+description: Detects network share enumeration via IPC$ using net use or similar tools, commonly used by adversaries to discover available shares and users on remote systems
+references:
+    - https://attack.mitre.org/techniques/T1021/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1021.002
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_net:
+        Image|endswith: \net.exe
+        CommandLine|contains:
+            - 'use'
+            - '\\'
+            - 'IPC$'
+    selection_net1:
+        Image|endswith: \net1.exe
+        CommandLine|contains:
+            - 'use'
+            - '\\'
+            - 'IPC$'
+    condition: 1 of selection_*
+falsepositives:
+    - Legitimate network share mapping by users
+    - IT support mounting shares for maintenance
+level: medium

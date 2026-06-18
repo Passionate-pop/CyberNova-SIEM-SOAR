@@ -1,0 +1,21 @@
+title: ConsentPromptBehaviorAdmin Set to 0
+id: a1000004-0005-4000-8000-000000000005
+description: Detects when ConsentPromptBehaviorAdmin is set to 0 which suppresses UAC elevation prompts for administrators
+references:
+    - https://attack.mitre.org/techniques/T1548/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1548.002
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|endswith: '\Microsoft\Windows\CurrentVersion\Policies\System\ConsentPromptBehaviorAdmin'
+        Details: '0'
+    condition: selection
+falsepositives:
+    - Authorized configuration changes by IT administrators
+level: high

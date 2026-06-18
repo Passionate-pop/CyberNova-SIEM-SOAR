@@ -1,0 +1,146 @@
+{
+  "title": "CyberNova — Security & Threat Metrics",
+  "uid": "cybernova-security",
+  "schemaVersion": 38,
+  "version": 1,
+  "timezone": "utc",
+  "editable": false,
+  "tags": ["cybernova", "security", "threat"],
+  "panels": [
+    {
+      "title": "Alerts by Severity (5m)",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "rate(cybernova_alerts_critical_total[5m])", "legendFormat": "critical", "refId": "A"},
+        {"expr": "rate(cybernova_alerts_high_total[5m])", "legendFormat": "high", "refId": "B"},
+        {"expr": "rate(cybernova_alerts_medium_total[5m])", "legendFormat": "medium", "refId": "C"},
+        {"expr": "rate(cybernova_alerts_low_total[5m])", "legendFormat": "low", "refId": "D"}
+      ],
+      "description": "Alert volume broken down by severity"
+    },
+    {
+      "title": "Active Threats by MITRE Tactic",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "cybernova_mitre_tactic_active",
+          "legendFormat": "{{tactic}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Active threats mapped to MITRE ATT&CK tactics"
+    },
+    {
+      "title": "SOAR Action Distribution",
+      "type": "piechart",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "cybernova_soar_actions_total",
+          "legendFormat": "{{action}}",
+          "refId": "A"
+        }
+      ],
+      "description": "SOAR actions by type (block_ip, isolate, disable_user, webhook)"
+    },
+    {
+      "title": "Top Blocked IPs",
+      "type": "table",
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 8},
+      "targets": [
+        {
+          "expr": "topk(10, cybernova_blocked_ips_total)",
+          "legendFormat": "{{ip}}",
+          "refId": "A"
+        }
+      ],
+      "description": "IPs blocked most frequently by SOAR",
+      "transformations": [
+        {"id": "organize", "options": {"indexByName": {"Time": 0, "ip": 1, "Value": 2}, "excludeByName": {}}}
+      ]
+    },
+    {
+      "title": "Alert Rate Spike Detection (5m/1h ratio)",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 8},
+      "targets": [
+        {
+          "expr": "rate(cybernova_alerts_generated_total[5m]) / rate(cybernova_alerts_generated_total[1h])",
+          "legendFormat": "spike_ratio",
+          "refId": "A"
+        }
+      ],
+      "description": "Ratio of 5m alert rate to 1h average — >5 indicates spike"
+    },
+    {
+      "title": "Top Detection Rules (hits/s)",
+      "type": "table",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 14},
+      "targets": [
+        {
+          "expr": "topk(10, rate(cybernova_detection_rule_hits_total[5m]))",
+          "legendFormat": "{{rule}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Most frequently triggered detection rules by hit rate",
+      "transformations": [
+        {"id": "organize", "options": {"indexByName": {"Time": 0, "rule": 1, "Value": 2}, "excludeByName": {}}}
+      ]
+    },
+    {
+      "title": "Isolated Devices",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 3, "x": 8, "y": 14},
+      "targets": [
+        {
+          "expr": "cybernova_devices_isolated_total",
+          "legendFormat": "isolated",
+          "refId": "A"
+        }
+      ],
+      "description": "Devices currently in isolated state"
+    },
+    {
+      "title": "Disabled Users",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 3, "x": 11, "y": 14},
+      "targets": [
+        {
+          "expr": "cybernova_users_disabled_total",
+          "legendFormat": "disabled",
+          "refId": "A"
+        }
+      ],
+      "description": "Users currently disabled by SOAR"
+    },
+    {
+      "title": "Suricata IDS Alerts / 5m",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 8, "x": 14, "y": 14},
+      "targets": [
+        {
+          "expr": "rate(cybernova_suricata_alerts_total[5m])",
+          "legendFormat": "suricata",
+          "refId": "A"
+        }
+      ],
+      "description": "Suricata IDS/IPS alert rate"
+    },
+    {
+      "title": "False Positive Rate (%)",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 20},
+      "targets": [
+        {
+          "expr": "rate(cybernova_alerts_false_positive_total[5m]) / rate(cybernova_alerts_generated_total[5m]) * 100",
+          "legendFormat": "false_positive_%",
+          "refId": "A"
+        }
+      ],
+      "description": "Percentage of alerts marked as false positive"
+    }
+  ]
+}

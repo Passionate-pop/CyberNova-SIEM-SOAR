@@ -1,0 +1,25 @@
+title: Suspicious Network Connection from Office Application
+id: d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a
+description: Detects office applications making outbound network connections (possible malware)
+references:
+    - https://attack.mitre.org/techniques/T1105/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1105
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+            - '\outlook.exe'
+        DestinationPort: 80
+    condition: selection
+falsepositives:
+    - Legitimate office add-ins
+level: high

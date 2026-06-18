@@ -1,0 +1,31 @@
+title: Process Launched from Removable Media
+id: a1000001-0037-4000-8000-000000000037
+description: Detects process execution originating from removable media drives
+references:
+    - https://attack.mitre.org/techniques/T1091/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1091
+logsource:
+    category: endpoint
+    product: windows
+detection:
+    selection:
+        EventID: 1
+        Image|contains:
+            - D:\
+            - E:\
+            - F:\
+            - G:\
+            - H:\
+        Image|endswith:
+            - .exe
+            - .dll
+    condition: selection
+falsepositives:
+    - Portable applications launched from USB
+    - Software installation from external media
+    - IT admin tools from USB drives
+level: high

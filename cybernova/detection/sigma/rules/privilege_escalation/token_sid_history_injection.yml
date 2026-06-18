@@ -1,0 +1,26 @@
+title: SID History Injection into Access Token
+id: a1000004-0035-4000-8000-000000000035
+description: Detects SID history attribute modifications in access tokens which may be used to inject privileged SIDs for escalation
+references:
+    - https://attack.mitre.org/techniques/T1134/005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1134.005
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\mimikatz.exe'
+        CommandLine|contains:
+            - 'sid'
+            - 'SIDHistory'
+            - 'sidhistory'
+    condition: selection
+falsepositives:
+    - Legitimate Active Directory migration tools
+level: high

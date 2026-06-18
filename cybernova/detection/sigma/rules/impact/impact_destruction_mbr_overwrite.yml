@@ -1,0 +1,43 @@
+title: MBR/VBR Overwrite Detected
+id: a1000012-0012-4000-8000-000000000012
+description: Detects attempts to overwrite the Master Boot Record (MBR) or Volume Boot Record (VBR), a destructive technique used by wiper malware to render systems unbootable.
+references:
+    - https://attack.mitre.org/techniques/T1485/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1485.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_raw_write:
+        Image|endswith: '\powershell.exe'
+        CommandLine|contains|all:
+            - '\\\\.\\PHYSICALDRIVE'
+            - 'WriteBytes'
+    selection_dd_mbr:
+        Image|endswith: '\dd.exe'
+        CommandLine|contains:
+            - 'if='
+            - 'of=\\\.\PHYSICALDRIVE'
+    selection_bcdedit:
+        Image|endswith: '\bcdedit.exe'
+        CommandLine|contains:
+            - 'bootstatuspolicy'
+            - 'ignoreshutdownfailures'
+            - 'recoveryenabled'
+    selection_fdisk:
+        CommandLine|contains:
+            - 'mbr'
+            - 'fixmbr'
+            - 'bootsect'
+            - '/nt52'
+            - '/nt60'
+    condition: 1 of selection_*
+falsepositives:
+    - Legitimate bootloader updates or OS installation
+    - Authorized disk imaging and cloning tools
+    - System recovery operations
+level: high

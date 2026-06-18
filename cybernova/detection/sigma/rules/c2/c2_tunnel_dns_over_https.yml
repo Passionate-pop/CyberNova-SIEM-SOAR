@@ -1,0 +1,39 @@
+title: DNS-over-HTTPS Usage from Non-Browser Process
+id: a1000010-0034-4000-8000-000000000034
+description: Detects DNS-over-HTTPS (DoH) queries originating from non-browser processes, potentially indicating C2 tunneling via encrypted DNS
+references:
+    - https://attack.mitre.org/techniques/T1095/
+    - https://attack.mitre.org/techniques/T1095/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1095.002
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_doh:
+        dst_port: 443
+        dns_query: true
+        http_host|endswith:
+            - '.cloudflare-dns.com'
+            - '.dns.google'
+            - '.dns.quad9.net'
+            - '.opendns.com'
+            - '.mullvad.net'
+            - '.dnscrypt.info'
+    selection_non_browser:
+        process_name|not_contains:
+            - 'chrome.exe'
+            - 'firefox.exe'
+            - 'msedge.exe'
+            - 'brave.exe'
+            - 'opera.exe'
+            - 'safari.exe'
+    condition: selection_doh and selection_non_browser
+falsepositives:
+    - PowerShell or scripts performing DNS lookups
+    - Security software using DoH
+    - System-wide DoH configuration
+level: medium

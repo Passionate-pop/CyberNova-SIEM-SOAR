@@ -1,0 +1,23 @@
+title: Proxy Configuration Modified via Registry
+id: a1000005-0057-4000-8000-000000000057
+description: Detects when proxy settings are modified via registry, potentially redirecting traffic through attacker-controlled proxies.
+references:
+    - https://attack.mitre.org/techniques/T1112/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1112
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - '\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyServer'
+            - '\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyEnable'
+            - '\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyServer'
+    condition: selection
+falsepositives:
+    - Authorized proxy configuration by network administrators
+level: medium

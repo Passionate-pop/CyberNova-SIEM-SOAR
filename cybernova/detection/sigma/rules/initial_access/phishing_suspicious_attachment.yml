@@ -1,0 +1,33 @@
+title: Suspicious Email Attachment Detected
+id: a1000001-0026-4000-8000-000000000026
+description: Detects emails containing potentially malicious file attachments
+references:
+    - https://attack.mitre.org/techniques/T1566/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1566
+logsource:
+    category: email
+    product: generic
+detection:
+    selection:
+        AttachmentExtension|endswith:
+            - .exe
+            - .scr
+            - .bat
+            - .cmd
+            - .vbs
+            - .vbe
+            - .js
+            - .jse
+            - .wsf
+            - .ps1
+            - .hta
+            - .jar
+    condition: selection
+falsepositives:
+    - Legitimate executable attachments from trusted senders
+    - Signed software distribution via email
+level: high

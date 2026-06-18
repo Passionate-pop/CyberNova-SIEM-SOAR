@@ -1,0 +1,23 @@
+title: DHCP Option Field Data Exfiltration
+id: a1000011-0010-4000-8000-000000000010
+description: Detects DHCP packets with abnormally large or custom option fields that may encode exfiltrated data
+references:
+    - https://attack.mitre.org/techniques/T1048/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.exfiltration
+    - attack.t1048
+    - attack.t1048.004
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection:
+        Protocol: 'DHCP'
+        OptionLength|gte: 128
+    condition: selection
+falsepositives:
+    - DHCP servers with extensive option configurations
+    - Network boot (PXE) environments
+level: low

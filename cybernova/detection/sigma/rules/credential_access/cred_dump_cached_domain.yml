@@ -1,0 +1,23 @@
+title: Cached Domain Credentials Read
+id: a1000006-0013-4000-8000-000000000013
+description: Detects access to cached domain credentials (MSCash/MSCash2) in registry
+references:
+    - https://attack.mitre.org/techniques/T1003/005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1003.005
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - '\SECURITY\Cache\NL$'
+            - 'MSCash'
+    condition: selection
+falsepositives:
+    - System logon process
+    - Authentication operations
+level: high

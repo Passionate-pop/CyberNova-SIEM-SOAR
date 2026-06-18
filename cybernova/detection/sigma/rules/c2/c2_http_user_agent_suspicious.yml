@@ -1,0 +1,36 @@
+title: Suspicious HTTP User-Agent Strings
+id: a1000010-0002-4000-8000-000000000002
+description: Detects HTTP requests with suspicious or uncommon User-Agent strings associated with C2 frameworks and malware
+references:
+    - https://attack.mitre.org/techniques/T1071/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.001
+logsource:
+    category: proxy
+    product: windows
+detection:
+    selection_suspicious:
+        user_agent|contains:
+            - 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)'
+            - 'Java/'
+            - 'Python-urllib/'
+            - 'Go-http-client/'
+            - 'curl/'
+            - 'Wget/'
+            - 'Nmap'
+            - 'masscan'
+            - 'PowerShell'
+            - 'Microsoft BITS'
+        dst_port: 80
+    selection_empty:
+        user_agent|contains: ''
+        user_agent_length: 0
+    condition: selection_suspicious or selection_empty
+falsepositives:
+    - Legitimate scripted HTTP clients
+    - Internal automation tools
+    - Devops tooling
+level: medium

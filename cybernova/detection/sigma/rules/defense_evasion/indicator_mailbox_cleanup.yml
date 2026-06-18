@@ -1,0 +1,25 @@
+title: Mailbox Folder Cleanup or Deletion
+id: a1000005-0043-4000-8000-000000000043
+description: Detects when mailbox folders or items are cleaned up or deleted, potentially covering up malicious email activity.
+references:
+    - https://attack.mitre.org/techniques/T1070/008/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1070
+    - attack.t1070.008
+logsource:
+    service: exchange
+    product: windows
+detection:
+    selection:
+        EventID: 1
+        Operation:
+            - 'HardDelete'
+            - 'SoftDelete'
+            - 'MoveToDeletedItems'
+    condition: selection
+falsepositives:
+    - Authorized mailbox cleanup by users or administrators
+level: medium

@@ -1,0 +1,23 @@
+title: Systemd Timer Pointing to Suspicious Binary
+id: a1000003-0039-4000-8000-000000000039
+description: Detects systemd timer units configured to execute suspicious binaries or scripts
+references:
+    - https://attack.mitre.org/techniques/T1053/006/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1053
+    - attack.t1053.006
+logsource:
+    category: file_event
+    product: linux
+detection:
+    selection:
+        TargetFilename|endswith: '.timer'
+        TargetFilename|contains: '/etc/systemd/system/'
+    condition: selection
+falsepositives:
+    - Custom application timers with legitimate scripts
+    - Development or testing environments
+level: medium

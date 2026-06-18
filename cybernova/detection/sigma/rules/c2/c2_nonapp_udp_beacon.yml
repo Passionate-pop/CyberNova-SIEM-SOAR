@@ -1,0 +1,40 @@
+title: UDP Beaconing to External IP
+id: a1000010-0040-4000-8000-000000000040
+description: Detects repeated UDP datagrams from an internal host to a single external IP on a non-standard port, indicating beaconing behavior for C2
+references:
+    - https://attack.mitre.org/techniques/T1095/
+    - https://attack.mitre.org/techniques/T1095/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1095.004
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_udp:
+        protocol: UDP
+        dst_port|not_in:
+            - 53
+            - 123
+            - 67
+            - 68
+            - 443
+            - 500
+            - 4500
+    selection_beacon:
+        timeframe: 30s
+        packet_count|gte: 5
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection_udp and selection_beacon and selection_external
+falsepositives:
+    - Online gaming traffic
+    - VoIP and video conferencing
+    - DNS resolution attempts
+    - NTP synchronization
+level: medium

@@ -1,0 +1,28 @@
+title: DGA-Like Domain in HTTP Request
+id: a1000010-0005-4000-8000-000000000005
+description: Detects HTTP requests to domains with characteristics common to domain generation algorithms
+references:
+    - https://attack.mitre.org/techniques/T1071/001/
+    - https://attack.mitre.org/techniques/T1568/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.001
+    - attack.t1568.002
+logsource:
+    category: dns
+    product: windows
+detection:
+    selection_dga:
+        dns_query|re: '[a-z0-9]{8,}\.(xyz|top|club|work|gq|ml|tk|cf|ga|pw|icu|online|site|live)'
+    selection_length:
+        domain_length|gte: 25
+    selection_ratio:
+        vowel_ratio|lt: 0.3
+    condition: selection_dga or (selection_length and selection_ratio)
+falsepositives:
+    - Shortened URLs from URL shorteners
+    - Legitimate long subdomain names in cloud services
+    - CDN auto-generated hostnames
+level: high

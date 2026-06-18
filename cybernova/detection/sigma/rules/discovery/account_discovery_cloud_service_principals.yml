@@ -1,0 +1,28 @@
+title: Cloud Service Principal Enumeration
+id: a1000007-0012-4000-8000-000000000012
+description: Detects enumeration of cloud service principals and applications
+references:
+    - https://attack.mitre.org/techniques/T1087/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.discovery
+    - attack.t1087.004
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        Image|endswith:
+            - /az
+            - /aws
+        CommandLine|contains:
+            - ad sp list
+            - ListServicePrincipals
+            - list-service-principals
+            - Get-AzureADServicePrincipal
+    condition: selection
+falsepositives:
+    - Cloud administration activities
+    - Automated deployment scripts
+level: medium

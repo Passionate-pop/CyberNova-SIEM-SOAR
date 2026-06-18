@@ -1,0 +1,33 @@
+title: Browser Sandbox Escape Attempt
+id: a1000001-0011-4000-8000-000000000011
+description: Detects potential browser sandbox escape techniques via API calls
+references:
+    - https://attack.mitre.org/techniques/T1189/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1189
+logsource:
+    category: endpoint
+    product: windows
+detection:
+    selection:
+        Image|endswith:
+            - \chrome.exe
+            - \firefox.exe
+            - \iexplore.exe
+            - \msedge.exe
+            - \opera.exe
+        TargetImage|endswith:
+            - \cmd.exe
+            - \powershell.exe
+            - \wscript.exe
+            - \cscript.exe
+            - \regsvr32.exe
+            - \rundll32.exe
+    condition: selection
+falsepositives:
+    - Browser automated update processes
+    - Browser extensions with native messaging
+level: high

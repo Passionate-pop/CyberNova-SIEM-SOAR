@@ -1,0 +1,22 @@
+title: Winlogon Notify Key Modification
+id: a1000003-0013-4000-8000-000000000013
+description: Detects modification to Winlogon Notify registry key for DLL persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.004
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: 'Microsoft\Windows NT\CurrentVersion\Winlogon\Notify'
+    condition: selection
+falsepositives:
+    - Legitimate credential provider installation
+    - Smart card middleware configuration
+level: high

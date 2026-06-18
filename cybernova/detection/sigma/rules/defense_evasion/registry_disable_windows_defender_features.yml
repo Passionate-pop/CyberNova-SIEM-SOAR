@@ -1,0 +1,23 @@
+title: WDAC or Exploit Guard Features Disabled
+id: a1000005-0059-4000-8000-000000000059
+description: Detects when Windows Defender Application Control or Exploit Guard features are disabled via registry.
+references:
+    - https://attack.mitre.org/techniques/T1112/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.defense_evasion
+    - attack.t1112
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - '\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard'
+            - '\Policies\Microsoft\Windows Defender\Windows Defender Application Control'
+        Details: '0'
+    condition: selection
+falsepositives:
+    - Authorized feature configuration in managed environments
+level: high

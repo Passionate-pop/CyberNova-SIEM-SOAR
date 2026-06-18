@@ -1,0 +1,46 @@
+title: Conti Ransomware Specific IOCs
+id: a1000012-0007-4000-8000-000000000007
+description: Detects Conti ransomware-specific indicators including known process names, command-line arguments, ransom note filenames, and file extension patterns.
+references:
+    - https://attack.mitre.org/techniques/T1486/003/
+    - https://www.cisa.gov/news-events/analysis-reports/ar21-265a
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1486.003
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_process:
+        Image|endswith:
+            - '\conhost.exe'
+            - '\winserv.exe'
+            - '\update.exe'
+            - '\monitor.exe'
+        CommandLine|contains:
+            - '--ioc'
+            - '-silent'
+            - '-m share'
+    selection_ext:
+        Image|endswith:
+            - '\conhost.exe'
+            - '\winserv.exe'
+        CommandLine|contains:
+            - '.CONTI'
+            - '.conti'
+    selection_network:
+        CommandLine|contains:
+            - '135'
+            - '139'
+            - '445'
+            - '3389'
+        CommandLine|contains|all:
+            - 'net use'
+            - '\\*'
+    condition: 1 of selection_*
+falsepositives:
+    - Legitimate command-line tools with similar syntax
+    - Penetration testing tools
+level: critical

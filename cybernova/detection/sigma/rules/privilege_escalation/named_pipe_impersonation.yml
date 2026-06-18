@@ -1,0 +1,24 @@
+title: Named Pipe Impersonation (SeImpersonatePrivilege Abuse)
+id: a1000004-0025-4000-8000-000000000025
+description: Detects named pipe creation and connection attempts associated with SeImpersonatePrivilege abuse tools (JuicyPotato, PrintSpoofer, etc.)
+references:
+    - https://attack.mitre.org/techniques/T1068/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1068
+logsource:
+    category: pipe_created
+    product: windows
+detection:
+    selection:
+        PipeName|contains:
+            - '\pipe\'
+        Image|contains:
+            - '\Temp\'
+            - '\Users\Public\'
+    condition: selection
+falsepositives:
+    - Legitimate inter-process communication
+level: high

@@ -1,0 +1,22 @@
+title: Registry Run Key Modification - Local Machine
+id: a1000003-0002-4000-8000-000000000002
+description: Detects modification to HKLM Run registry key for system-wide persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.001
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|startswith: 'HKLM\Software\Microsoft\Windows\CurrentVersion\Run'
+    condition: selection
+falsepositives:
+    - Legitimate software installation
+    - System administration tools
+level: medium

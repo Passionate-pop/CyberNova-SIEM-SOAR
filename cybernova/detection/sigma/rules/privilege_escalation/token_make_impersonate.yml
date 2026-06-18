@@ -1,0 +1,23 @@
+title: ImpersonateLoggedOnUser / SetThreadToken Calls
+id: a1000004-0032-4000-8000-000000000032
+description: Detects use of ImpersonateLoggedOnUser or SetThreadToken APIs to impersonate security contexts of other users
+references:
+    - https://attack.mitre.org/techniques/T1134/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1134.003
+logsource:
+    category: api_call
+    product: windows
+detection:
+    selection:
+        Api|contains:
+            - 'ImpersonateLoggedOnUser'
+            - 'SetThreadToken'
+            - 'ImpersonateNamedPipeClient'
+    condition: selection
+falsepositives:
+    - Legitimate impersonation by system services
+level: high

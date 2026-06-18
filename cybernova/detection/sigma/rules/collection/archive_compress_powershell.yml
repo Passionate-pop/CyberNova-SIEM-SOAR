@@ -1,0 +1,30 @@
+title: Archive Collection via PowerShell Compress-Archive
+id: a1000009-0002-4000-8000-000000000002
+description: Detects usage of PowerShell Compress-Archive cmdlet for potential data staging or exfiltration
+references:
+    - https://attack.mitre.org/techniques/T1560/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.collection
+    - attack.t1560
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_compress:
+        CommandLine|contains|all:
+            - 'Compress-Archive'
+            - '-Path'
+            - '-DestinationPath'
+    selection_archive_ext:
+        CommandLine|contains:
+            - '.zip'
+            - '.rar'
+            - '.7z'
+            - '.tar'
+    condition: selection_compress and selection_archive_ext
+falsepositives:
+    - Administrative backup scripts
+    - Log archiving by system administrators
+level: medium

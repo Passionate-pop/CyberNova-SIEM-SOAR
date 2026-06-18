@@ -1,0 +1,63 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CyberNova — Prometheus Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  scrape_timeout:      10s
+  external_labels:
+    monitor: 'cybernova'
+    environment: 'production'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+      timeout: 5s
+      scheme: http
+      api_version: v2
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # Backend API — exposes /metrics on port 8000
+  - job_name: 'cybernova-backend'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ['backend:8000']
+        labels:
+          service: 'backend'
+          tier: 'api'
+
+  # Nginx reverse proxy — uses /nginx_status (requires stub_status module)
+  # Backend metrics are collected via the cybernova-backend job above.
+  # Note: /nginx_status must be enabled in nginx config to use this target.
+  # Currently disabled by default since backend:8000 serves all metrics.
+  # - job_name: 'nginx'
+  #   scrape_interval: 15s
+  #   scrape_timeout: 5s
+  #   metrics_path: /nginx_status
+  #   static_configs:
+  #     - targets: ['nginx:80']
+  #       labels:
+  #         service: 'nginx'
+  #         tier: 'proxy'
+
+  # Suricata IDS/IPS — Suricata does not expose an HTTP metrics endpoint by default.
+  # To enable Suricata metrics, configure the 'stats' output in suricata.yaml
+  # and expose a metrics endpoint (e.g., via a sidecar exporter or the event_bridge).
+  # For now, this job is commented out to avoid scrape failures from Prometheus.
+  # - job_name: 'suricata'
+  #   scrape_interval: 30s
+  #   scrape_timeout: 10s
+  #   metrics_path: /metrics
+  #   scheme: http
+  #   static_configs:
+  #     - targets: ['suricata:80']
+  #       labels:
+  #         service: 'suricata'
+  #         tier: 'ids'

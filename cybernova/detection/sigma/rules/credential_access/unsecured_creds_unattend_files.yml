@@ -1,0 +1,25 @@
+title: Credentials in Unattend/Sysprep Files
+id: a1000006-0022-4000-8000-000000000022
+description: Detects access to Windows unattend.xml and sysprep files containing credentials
+references:
+    - https://attack.mitre.org/techniques/T1552/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.credential_access
+    - attack.t1552.001
+logsource:
+    category: file_access
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains:
+            - 'unattend.xml'
+            - 'autounattend.xml'
+            - 'sysprep.inf'
+            - 'sysprep.xml'
+    condition: selection
+falsepositives:
+    - System deployment operations
+    - IT provisioning scripts
+level: high

@@ -1,0 +1,31 @@
+title: Unusual DNS Record Type Queries
+id: a1000010-0022-4000-8000-000000000022
+description: Detects DNS queries for non-standard record types (TXT, MX, CNAME, ANY, SRV) from hosts not typically associated with mail or service discovery
+references:
+    - https://attack.mitre.org/techniques/T1071/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.004
+logsource:
+    category: dns
+    product: windows
+detection:
+    selection_txt:
+        dns_record_type: TXT
+        process_name|not_contains: 'svchost.exe'
+    selection_mx:
+        dns_record_type: MX
+        process_name|not_contains: 'outlook.exe'
+    selection_any:
+        dns_record_type: ANY
+    selection_cname_chain:
+        dns_record_type: CNAME
+        dns_response_count|gte: 5
+    condition: selection_txt or selection_mx or selection_any or selection_cname_chain
+falsepositives:
+    - Network diagnostic tools like nslookup
+    - Email client configuration checks
+    - Service discovery mechanisms
+level: low

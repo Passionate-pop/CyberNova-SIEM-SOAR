@@ -1,0 +1,29 @@
+title: Cloud IAM User Enumeration
+id: a1000007-0011-4000-8000-000000000011
+description: Detects cloud IAM user enumeration (ListUsers, Get-User, Get-AWSCredentialReport)
+references:
+    - https://attack.mitre.org/techniques/T1087/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.discovery
+    - attack.t1087.004
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        Image|endswith:
+            - /aws
+            - /az
+            - /gcloud
+        CommandLine|contains:
+            - ListUsers
+            - list-users
+            - Get-User
+            - iam
+    condition: selection
+falsepositives:
+    - DevOps scripts enumerating users
+    - Cloud infrastructure audits
+level: medium

@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cybernova.fullname" . }}-config
+  labels:
+    {{- include "cybernova.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.config.environment }}
+  APP_VERSION: {{ .Values.config.appVersion | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel }}
+  INGESTION_SYSLOG_ENABLED: {{ .Values.ingestion.syslogEnabled | quote }}
+  AGENT_MANAGER_ENABLED: {{ .Values.agent.managerEnabled | quote }}
+  THREAT_INTEL_FEEDS_ENABLED: {{ .Values.threatIntel.feedsEnabled | quote }}
+  THREAT_INTEL_POLL_INTERVAL: {{ .Values.threatIntel.pollInterval | quote }}
+  RETENTION_ENABLED: {{ .Values.retention.enabled | quote }}
+  RETENTION_INTERVAL: {{ .Values.retention.interval | quote }}
+  ANOMALY_ENABLED: {{ .Values.anomaly.enabled | quote }}
+  ANOMALY_WINDOW_MINUTES: {{ .Values.anomaly.windowMinutes | quote }}
+  APP_HOST: {{ .Values.service.host | default "0.0.0.0" | quote }}
+  APP_PORT: {{ .Values.service.port | quote }}
+  DB_POOL_SIZE: {{ .Values.postgresql.poolSize | default 20 | quote }}
+  DB_MAX_OVERFLOW: {{ .Values.postgresql.maxOverflow | default 10 | quote }}
+  REDIS_POOL_SIZE: {{ .Values.redis.poolSize | default 20 | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | default "http://localhost:3000" | quote }}
+{{- if .Values.features }}
+  FEATURE_MARKETPLACE_ENABLED: {{ .Values.features.marketplaceEnabled | default false | quote }}
+  FEATURE_GENAI_ENABLED: {{ .Values.features.genaiEnabled | default false | quote }}
+  FEATURE_MULTI_REGION_ENABLED: {{ .Values.features.multiRegionEnabled | default false | quote }}
+{{- end }}

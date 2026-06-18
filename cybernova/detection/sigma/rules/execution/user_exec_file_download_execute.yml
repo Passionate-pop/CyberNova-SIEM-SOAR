@@ -1,0 +1,40 @@
+title: File Downloaded Then Executed
+id: a1000002-0024-4000-8000-000000000024
+description: Detects a file being downloaded and then quickly executed, indicative of user opening a malicious download
+references:
+    - https://attack.mitre.org/techniques/T1204/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.execution
+    - attack.t1204.002
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_browser:
+        Image|endswith:
+            - \chrome.exe
+            - \firefox.exe
+            - \msedge.exe
+            - \iexplore.exe
+        CommandLine|contains:
+            - '--save-page-as'
+            - '--download'
+            - '--save'
+    selection_execution:
+        Image|endswith:
+            - \cmd.exe
+            - \powershell.exe
+            - \pwsh.exe
+            - \wscript.exe
+            - \cscript.exe
+            - \mshta.exe
+            - \rundll32.exe
+        ParentImage|endswith:
+            - \explorer.exe
+    condition: all of selection_*
+falsepositives:
+    - User deliberately downloading and running legitimate software
+    - Software installers downloaded via browser
+level: high

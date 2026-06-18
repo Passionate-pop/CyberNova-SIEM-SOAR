@@ -1,0 +1,46 @@
+title: Cloud Backup Deletion or Retention Reduced
+id: a1000012-0025-4000-8000-000000000025
+description: Detects reduction of backup retention policies or deletion of backup snapshots/restore points in cloud environments, which can be used to eliminate recoverable data.
+references:
+    - https://attack.mitre.org/techniques/T1490/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1490.003
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_aws_retention:
+        CommandLine|contains|all:
+            - 'aws backup'
+            - 'update-backup-plan'
+            - 'DeleteAfterDays'
+        CommandLine|contains:
+            - '0'
+            - '1'
+    selection_az_retention:
+        CommandLine|contains|all:
+            - 'az backup retention'
+            - 'az backup policy set'
+            - '--retention-days'
+            - '0'
+    selection_gcloud_snapshot_del:
+        CommandLine|contains:
+            - 'gcloud compute snapshots delete'
+            - '--snapshot-names'
+    selection_aws_snapshot_deregister:
+        CommandLine|contains:
+            - 'aws ec2 deregister-image'
+            - 'aws ec2 delete-snapshot'
+    selection_az_snapshot:
+        CommandLine|contains|all:
+            - 'az snapshot'
+            - 'delete'
+    condition: 1 of selection_*
+falsepositives:
+    - Authorized backup policy adjustments for cost savings
+    - Lifecycle management policies in CI/CD pipelines
+    - Cloud infrastructure automation scripts
+level: medium

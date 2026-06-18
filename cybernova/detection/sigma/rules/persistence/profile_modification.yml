@@ -1,0 +1,27 @@
+title: Shell Profile Modification
+id: a1000003-0024-4000-8000-000000000024
+description: Detects modification to shell profile files for persistence on Linux and macOS
+references:
+    - https://attack.mitre.org/techniques/T1547/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.001
+logsource:
+    category: file_event
+    product: linux
+detection:
+    selection:
+        TargetFilename|endswith:
+            - '.bashrc'
+            - '.bash_profile'
+            - '.zshrc'
+            - '.profile'
+            - '.cshrc'
+    condition: selection
+falsepositives:
+    - User legitimate shell configuration
+    - System administrator environment setup
+level: medium

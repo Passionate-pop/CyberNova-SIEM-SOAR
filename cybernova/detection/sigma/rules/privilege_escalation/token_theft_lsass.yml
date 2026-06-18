@@ -1,0 +1,28 @@
+title: Token Theft via LSASS Access
+id: a1000004-0029-4000-8000-000000000029
+description: Detects attempts to access LSASS process to steal tokens for privilege escalation
+references:
+    - https://attack.mitre.org/techniques/T1134/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.privilege_escalation
+    - attack.t1134.001
+logsource:
+    category: process_access
+    product: windows
+detection:
+    selection:
+        TargetImage|endswith: '\lsass.exe'
+        GrantedAccess|contains:
+            - 'PROCESS_ALL_ACCESS'
+            - '0x1F0FFF'
+            - '0x1FFFFF'
+        SourceImage|contains:
+            - '\Temp\'
+            - '\Users\Public\'
+    condition: selection
+falsepositives:
+    - Legitimate administrative tools (Sysinternals, AV)
+    - Credential dumping tools (Mimikatz)
+level: critical

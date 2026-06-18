@@ -1,0 +1,25 @@
+title: Pass-the-Hash Via Registry NTLM Hash Injection
+id: a1000008-0028-4000-8000-000000000028
+description: Detects NTLM hash injection into LSASS or registry modifications that load NTLM hashes into the current security context for pass-the-hash attacks
+references:
+    - https://attack.mitre.org/techniques/T1550/002/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.lateral_movement
+    - attack.t1550.002
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        EventType: 'SetValue'
+        TargetObject|contains:
+            - 'HKLM\SECURITY\Policy\Secrets'
+            - 'HKLM\SAM\SAM\Domains\Account'
+            - '\NTDS'
+    condition: selection
+falsepositives:
+    - Legitimate password changes updating SAM or NTDS
+    - Domain controller replication events
+level: critical

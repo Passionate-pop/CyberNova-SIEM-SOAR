@@ -1,0 +1,25 @@
+title: Suspicious Email Forwarded Internally
+id: a1000001-0032-4000-8000-000000000032
+description: Detects internal forwarding of external suspicious emails to multiple recipients
+references:
+    - https://attack.mitre.org/techniques/T1566/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1566
+logsource:
+    category: email
+    product: generic
+detection:
+    selection:
+        Action: forward
+        RecipientCount|gt: 10
+        OriginalFromDomain|notcontains:
+            - company.com
+    condition: selection
+falsepositives:
+    - User sharing legitimate external information with team
+    - Newsletter forwarding
+    - Manager broadcasting external updates
+level: medium

@@ -1,0 +1,29 @@
+title: Autorun.inf Creation on Removable Media
+id: a1000001-0036-4000-8000-000000000036
+description: Detects creation of autorun.inf files on removable media drives
+references:
+    - https://attack.mitre.org/techniques/T1091/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1091
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        EventID:
+            - 11
+        TargetFilename|endswith: \autorun.inf
+        TargetFilename|contains:
+            - D:\
+            - E:\
+            - F:\
+            - G:\
+            - H:\
+    condition: selection
+falsepositives:
+    - Legitimate autorun configuration for software installation
+    - IT deployment USB drives
+level: high

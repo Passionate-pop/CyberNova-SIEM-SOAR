@@ -1,0 +1,4 @@
+[bandit]
+exclude: tests,*/tests/*,*/tests/**,**/tests/**
+
+skips: B101

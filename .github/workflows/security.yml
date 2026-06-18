@@ -1,0 +1,69 @@
+name: Security Scanner
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+    paths:
+      - requirements.txt
+      - "**/*.py"
+      - "**/*.yml"
+      - "**/*.yaml"
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  dependency-scan:
+    name: Dependency scan (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install pip-audit
+      - name: Audit with descriptions
+        continue-on-error: true
+        run: pip-audit -r requirements.txt --desc --ignore-vuln PYSEC-EXAMPLE
+      - name: Audit (fail on critical/high)
+        run: pip-audit -r requirements.txt --strict
+
+  sast:
+    name: SAST (bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install bandit
+      - name: Run bandit SAST
+        run: bandit -r cybernova/ -ll -x tests
+      - name: Generate SARIF report
+        if: always()
+        run: |
+          pip install sarif-tools 2>/dev/null || true
+          bandit -r cybernova/ -ll -x tests -f sarif -o bandit-results.sarif || true
+      - name: Upload bandit SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit
+
+  secrets-scan:
+    name: Secrets scan (trufflehog)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run trufflehog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown

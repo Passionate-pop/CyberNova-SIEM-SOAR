@@ -1,0 +1,164 @@
+{
+  "title": "CyberNova — Pipeline & Queue Depth",
+  "uid": "cybernova-pipeline",
+  "schemaVersion": 38,
+  "version": 1,
+  "timezone": "utc",
+  "editable": false,
+  "tags": ["cybernova", "pipeline"],
+  "panels": [
+    {
+      "title": "Pipeline Throughput (events/s)",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "rate(cybernova_events_ingested_total[1m])", "legendFormat": "ingested", "refId": "A"},
+        {"expr": "rate(cybernova_events_processed_total[1m])", "legendFormat": "processed", "refId": "B"}
+      ],
+      "description": "Pipeline ingestion vs processing throughput"
+    },
+    {
+      "title": "Stream Consumer Lag",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "cybernova_stream_lag",
+          "legendFormat": "{{stream}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Per-stream consumer lag"
+    },
+    {
+      "title": "Dead Letter Queue Depth",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "cybernova_dlq_depth",
+          "legendFormat": "DLQ",
+          "refId": "A"
+        }
+      ],
+      "description": "Failed events awaiting reprocessing"
+    },
+    {
+      "title": "Processing Latency Distribution (P50/P90/P99)",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, rate(cybernova_processing_latency_ms_bucket[5m]))", "legendFormat": "P50", "refId": "A"},
+        {"expr": "histogram_quantile(0.90, rate(cybernova_processing_latency_ms_bucket[5m]))", "legendFormat": "P90", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, rate(cybernova_processing_latency_ms_bucket[5m]))", "legendFormat": "P99", "refId": "C"}
+      ],
+      "description": "Processing latency percentiles"
+    },
+    {
+      "title": "Enrichment Worker Status",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 3, "x": 12, "y": 8},
+      "targets": [{"expr": "cybernova_enrichment_running", "legendFormat": "enrichment", "refId": "A"}],
+      "description": "Enrichment worker health"
+    },
+    {
+      "title": "Correlation Worker Status",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 3, "x": 15, "y": 8},
+      "targets": [{"expr": "cybernova_correlation_running", "legendFormat": "correlation", "refId": "A"}],
+      "description": "Correlation worker health"
+    },
+    {
+      "title": "AI Worker Status",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 3, "x": 18, "y": 8},
+      "targets": [{"expr": "cybernova_ai_worker_running", "legendFormat": "ai", "refId": "A"}],
+      "description": "AI investigation worker health"
+    },
+    {
+      "title": "Event Processing Error Rate",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 12},
+      "targets": [
+        {
+          "expr": "rate(cybernova_events_failed_total[5m])",
+          "legendFormat": "errors/s",
+          "refId": "A"
+        }
+      ],
+      "description": "Event processing error rate"
+    },
+    {
+      "title": "Circuit Breaker Status",
+      "type": "table",
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 12},
+      "targets": [
+        {
+          "expr": "cybernova_circuit_breaker_status",
+          "legendFormat": "{{breaker}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Circuit breaker states (0=closed, 1=open, 2=half-open)"
+    },
+    {
+      "title": "Pipeline Running",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 12},
+      "targets": [{"expr": "cybernova_pipeline_running", "legendFormat": "pipeline", "refId": "A"}],
+      "description": "Pipeline orchestrator status"
+    },
+    {
+      "title": "Pipeline Stage Latency P99",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(cybernova_pipeline_stage_latency_ms_bucket[5m]))",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ],
+      "description": "P99 processing latency by pipeline stage"
+    },
+    {
+      "title": "Stage SLO Success Rate",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+      "targets": [
+        {
+          "expr": "cybernova_stage_slo_success_rate",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Per-stage SLO success rate (%) against thresholds"
+    },
+    {
+      "title": "Stage SLO P99 Latency vs Threshold",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 26},
+      "targets": [
+        {
+          "expr": "cybernova_stage_slo_p99_latency_ms",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Per-stage SLO P99 latency (ms) against thresholds"
+    },
+    {
+      "title": "Stage SLO Throughput",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 26},
+      "targets": [
+        {
+          "expr": "cybernova_stage_slo_throughput_per_min",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ],
+      "description": "Per-stage SLO throughput (events/min)"
+    }
+  ]
+}

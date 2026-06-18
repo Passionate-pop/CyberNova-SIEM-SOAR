@@ -1,0 +1,36 @@
+title: Periodic Intermittent Encrypted Communication
+id: a1000010-0030-4000-8000-000000000030
+description: Detects recurring encrypted sessions to external hosts with long idle periods between active communication windows, characteristic of stealthy C2
+references:
+    - https://attack.mitre.org/techniques/T1573/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1573
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_frequency:
+        session_count: 1
+        idle_time_before|gte: 3600s
+        idle_time_after|gte: 3600s
+    selection_encrypted:
+        dst_port:
+            - 443
+            - 993
+            - 995
+            - 8443
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    timeframe: 24h
+    condition: selection_frequency and selection_encrypted and selection_external | count(dst_ip) by src_ip between 3 and 10
+falsepositives:
+    - Daily software update checks
+    - Scheduled backup connections
+    - Nightly batch processing jobs
+level: medium

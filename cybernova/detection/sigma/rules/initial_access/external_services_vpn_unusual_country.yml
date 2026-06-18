@@ -1,0 +1,28 @@
+title: VPN Connection from Unusual Country
+id: a1000001-0021-4000-8000-000000000021
+description: Detects VPN authentication from countries not in the organization's approved list
+references:
+    - https://attack.mitre.org/techniques/T1133/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1133
+logsource:
+    category: firewall
+    product: network
+detection:
+    selection:
+        VPNAction: authenticate
+        ClientCountry|contains:
+            - RU
+            - CN
+            - IR
+            - KP
+            - CU
+            - VE
+    condition: selection
+falsepositives:
+    - Employee traveling to restricted countries with approval
+    - VPN provider exit nodes in unexpected locations
+level: high

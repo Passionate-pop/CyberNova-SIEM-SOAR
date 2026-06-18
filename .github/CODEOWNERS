@@ -1,0 +1,45 @@
+# CyberNova — CODEOWNERS
+# ══════════════════════════════════════════════════════════════
+# Each line is a file pattern followed by one or more owners.
+# Order matters: the last matching pattern takes precedence.
+# ══════════════════════════════════════════════════════════════
+
+# Default: core team reviews everything
+* @cybernova/core
+
+# ── Core Backend ──────────────────────────────────────────
+/cybernova/main.py @cybernova/core
+/cybernova/config/ @cybernova/core
+/cybernova/database/ @cybernova/core
+/cybernova/pipeline/ @cybernova/core
+/cybernova/detection/ @cybernova/security
+/cybernova/protection/ @cybernova/security
+/cybernova/soar/ @cybernova/security
+/cybernova/response/ @cybernova/security
+
+# ── Frontend ─────────────────────────────────────────────
+/cybernova-frontend/ @cybernova/frontend
+
+# ── Infrastructure ───────────────────────────────────────
+/Dockerfile @cybernova/infra
+/docker-compose.yml @cybernova/infra
+/helm/ @cybernova/infra
+/monitoring/ @cybernova/infra
+/nginx/ @cybernova/infra
+
+# ── CI/CD ────────────────────────────────────────────────
+/.github/ @cybernova/infra
+/.github/workflows/ @cybernova/infra
+
+# ── Drivers / Agents ─────────────────────────────────────
+/cybernova-driver/ @cybernova/core
+/host_agent.py @cybernova/core
+
+# ── Documentation ─────────────────────────────────────────
+/docs/ @cybernova/core
+/README.md @cybernova/core
+
+# ── Tests ────────────────────────────────────────────────
+/tests/ @cybernova/core
+/tests/security/ @cybernova/security
+/tests/chaos/ @cybernova/infra

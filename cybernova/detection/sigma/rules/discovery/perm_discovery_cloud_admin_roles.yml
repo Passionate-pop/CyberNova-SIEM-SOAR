@@ -1,0 +1,29 @@
+title: Cloud Admin Role Enumeration
+id: a1000007-0020-4000-8000-000000000020
+description: Detects enumeration of cloud administrative roles and assignments
+references:
+    - https://attack.mitre.org/techniques/T1069/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.discovery
+    - attack.t1069.003
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        Image|endswith:
+            - /az
+            - /aws
+            - /gcloud
+        CommandLine|contains:
+            - ListRoles
+            - list-roles
+            - RoleDefinitions
+            - Get-AzureADDirectoryRole
+    condition: selection
+falsepositives:
+    - Cloud security audits
+    - Role-based access control management
+level: medium

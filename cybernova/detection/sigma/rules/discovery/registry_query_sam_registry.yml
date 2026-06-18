@@ -1,0 +1,23 @@
+title: Registry Query For SAM User Enumeration
+id: a1000007-0035-4000-8000-000000000035
+description: Detects registry queries against SAM for user account enumeration
+references:
+    - https://attack.mitre.org/techniques/T1012/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.discovery
+    - attack.t1012
+logsource:
+    category: registry_query
+    product: windows
+detection:
+    selection:
+        TargetObject|contains:
+            - 'SAM\SAM\Domains\Account\Users\Names'
+            - 'SAM\SAM\Domains\Account\Users\*'
+    condition: selection
+falsepositives:
+    - Legitimate system administration
+    - Security auditing tools
+level: high

@@ -1,0 +1,72 @@
+# ── CyberNova .dockerignore ──────────────────────────────────────────
+# Exclude from Docker build context to keep images lean & secure
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+
+# Environment & secrets (NEVER ship these)
+.env
+.env.*
+!env.example
+secrets/
+*.pem
+*.key
+certbot/
+
+# Test files (not needed in production images)
+tests/
+test*.py
+*_test.py
+.coverage
+htmlcov/
+.coverage.*
+*.cover
+coverage/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Development configs
+docker-compose*.yml
+docker-compose*.yaml
+Makefile
+Vagrantfile
+*.bak
+*.swp
+*.swo
+*~
+
+# CI/CD
+.github/
+.ci/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Logs & data
+*.log
+data/
+logs/

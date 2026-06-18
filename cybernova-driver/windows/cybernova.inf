@@ -1,0 +1,48 @@
+;
+; CyberNova Antivirus Minifilter Driver
+;
+[Version]
+Signature="$WINDOWS NT$"
+Class=ActivityMonitor
+ClassGuid={b86dff51-a31e-4bac-b3bb-e6f2c8b9c600}
+Provider=%ProviderString%
+DriverVer=05/09/2026,1.0.0.0
+CatalogFile=cybernova.cat
+
+[DestinationDirs]
+DefaultDestDir=12
+
+[DefaultInstall]
+OptionDesc=%ServiceName%
+CopyFiles=Cybernova.Files
+
+[DefaultInstall.Services]
+AddService=%ServiceName%,,Cybernova.Service
+
+[Cybernova.Service]
+DisplayName=%ServiceName%
+Description=%ServiceDesc%
+ServiceType=2
+StartType=1
+ErrorControl=1
+ServiceBinary=%12%\cybernova.sys
+AddReg=Cybernova.AddRegistry
+
+[Cybernova.AddRegistry]
+HKR,,"SupportedFeatures",0x00010003,0x3
+HKR,,"DebugFlags",0x00010001,0x0
+
+[Cybernova.Files]
+cybernova.sys
+
+[SourceDisksNames]
+1 = %DiskName%,,,
+
+[SourceDisksFiles]
+cybernova.sys = 1
+
+[Strings]
+ProviderString="CyberNova Security"
+ServiceName="CybernovaAV"
+ServiceDesc="CyberNova Antivirus Minifilter Driver"
+DiskName="CyberNova Driver Disk"

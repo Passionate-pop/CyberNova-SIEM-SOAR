@@ -1,0 +1,25 @@
+title: Linux At Job or Cron Creation
+id: a1000003-0026-4000-8000-000000000026
+description: Detects creation of at jobs or cron entries for task scheduling persistence on Linux
+references:
+    - https://attack.mitre.org/techniques/T1053/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1053
+    - attack.t1053.001
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        Image|endswith:
+            - '/at'
+            - '/batch'
+            - '/crontab'
+    condition: selection
+falsepositives:
+    - System administration scheduled maintenance
+    - Legitimate cron job creation by authorized users
+level: low

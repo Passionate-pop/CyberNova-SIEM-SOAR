@@ -1,0 +1,33 @@
+title: Ransom Note Dropped on System
+id: a1000012-0002-4000-8000-000000000002
+description: Detects the creation of ransom note files commonly dropped by ransomware families across the filesystem, including desktop, root, and network share locations.
+references:
+    - https://attack.mitre.org/techniques/T1486/001/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.impact
+    - attack.t1486.001
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        EventID: 11
+        TargetFilename|contains:
+            - 'README.txt'
+            - 'HowToDecrypt'
+            - 'RECOVERY.txt'
+            - 'DECRYPT.txt'
+            - 'README.html'
+            - 'HELP_DECRYPT'
+            - 'INSTRUCTION'
+            - '!READ_ME'
+            - '_readme'
+            - 'Restore_Files'
+            - 'How_To_Recover'
+    condition: selection
+falsepositives:
+    - Decoy files placed by security researchers
+    - Legitimate encryption notice in corporate environments
+level: high

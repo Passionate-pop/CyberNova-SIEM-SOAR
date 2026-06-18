@@ -1,0 +1,36 @@
+title: VBA Auto-Exec Macro
+id: a1000002-0013-4000-8000-000000000013
+description: Detects auto-executing macros in Office documents (AutoOpen, Auto_Open, Document_Open, etc.)
+references:
+    - https://attack.mitre.org/techniques/T1059/005/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.execution
+    - attack.t1059.005
+logsource:
+    category: image_load
+    product: windows
+detection:
+    selection_vba_module:
+        EventID: 1006
+        Image|endswith:
+            - \WINWORD.EXE
+            - \EXCEL.EXE
+            - \POWERPNT.EXE
+    selection_auto_macro:
+        Description|contains:
+            - 'Auto_Open'
+            - 'AutoOpen'
+            - 'Auto_Close'
+            - 'AutoClose'
+            - 'Document_Open'
+            - 'DocumentOpen'
+            - 'Workbook_Open'
+            - 'WorkbookOpen'
+            - 'AutoExec'
+            - 'AutoExit'
+    condition: all of selection_*
+falsepositives:
+    - Legitimate documents with auto macros for functionality (e.g., auto-save)
+level: high

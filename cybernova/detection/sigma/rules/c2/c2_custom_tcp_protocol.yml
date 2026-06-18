@@ -1,0 +1,52 @@
+title: Custom TCP Protocol with Non-Standard Banner
+id: a1000010-0037-4000-8000-000000000037
+description: Detects TCP connections to external hosts on non-standard ports that use custom banners or lack standard protocol signatures, suggesting custom C2 protocols
+references:
+    - https://attack.mitre.org/techniques/T1095/
+    - https://attack.mitre.org/techniques/T1095/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1095.003
+logsource:
+    category: network_connection
+    product: windows
+detection:
+    selection_non_standard:
+        dst_port|not_in:
+            - 80
+            - 443
+            - 22
+            - 21
+            - 25
+            - 53
+            - 110
+            - 143
+            - 389
+            - 445
+            - 3389
+            - 8080
+            - 8443
+        protocol: TCP
+    selection_no_standard_banner:
+        banner|not_contains:
+            - 'HTTP/'
+            - 'SSH-'
+            - '220'
+            - 'SMTP'
+            - 'POP3'
+            - 'IMAP'
+            - 'FTP'
+        banner_length|gte: 32
+    selection_external:
+        dst_ip|not_in:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+    condition: selection_non_standard and selection_no_standard_banner and selection_external
+falsepositives:
+    - Proprietary application protocols
+    - Legacy system protocols
+    - Game server connections
+level: medium

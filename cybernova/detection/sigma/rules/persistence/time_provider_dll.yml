@@ -1,0 +1,22 @@
+title: Time Provider DLL Registry Modification
+id: a1000003-0012-4000-8000-000000000012
+description: Detects modification to Time Provider registry key for DLL loading persistence
+references:
+    - https://attack.mitre.org/techniques/T1547/003/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.persistence
+    - attack.t1547
+    - attack.t1547.003
+logsource:
+    category: registry_event
+    product: windows
+detection:
+    selection:
+        TargetObject|contains: 'Microsoft\Windows\CurrentVersion\Time Provider'
+    condition: selection
+falsepositives:
+    - Legitimate time synchronization software
+    - NTP client configuration changes
+level: high

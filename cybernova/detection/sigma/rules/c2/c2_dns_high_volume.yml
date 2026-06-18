@@ -1,0 +1,23 @@
+title: High Volume of DNS Queries to Single Domain
+id: a1000010-0020-4000-8000-000000000020
+description: Detects an abnormally high volume of DNS queries directed at a single domain from one source, indicative of DNS-based C2 tunneling
+references:
+    - https://attack.mitre.org/techniques/T1071/004/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.command_and_control
+    - attack.t1071.004
+logsource:
+    category: dns
+    product: windows
+detection:
+    selection:
+        src_ip: 10.0.0.0/8
+    timeframe: 60s
+    condition: selection | count(dns_query) by src_ip > 50
+falsepositives:
+    - Load balancer health checks
+    - CDN domain resolution
+    - API rate limiting retries
+level: medium

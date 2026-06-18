@@ -1,0 +1,30 @@
+title: Cross-Organization Authentication Anomaly
+id: a1000001-0034-4000-8000-000000000034
+description: Detects anomalous cross-organization authentication attempts through trusted relationships
+references:
+    - https://attack.mitre.org/techniques/T1199/
+author: CyberNova
+date: 2025-01-01
+tags:
+    - attack.initial_access
+    - attack.t1199
+logsource:
+    category: authentication
+    product: cloud
+detection:
+    selection:
+        EventName:
+            - CrossAccountAccess
+            - AssumeRole
+            - SAMLResponse
+        SourceOrg|contains: 
+            - partner
+        DestinationAccount|contains: 
+            - admin
+            - prod
+            - billing
+    condition: selection
+falsepositives:
+    - Legitimate cross-account access for business operations
+    - Federated identity configuration testing
+level: medium
