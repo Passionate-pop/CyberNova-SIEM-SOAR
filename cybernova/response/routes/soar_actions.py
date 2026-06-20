@@ -1190,8 +1190,11 @@ async def _enforce_firewall_unblock(ip_address: str) -> bool:
                                     log.info("nftables rule handle %s removed: unblock %s", handle, ip_address)
                                     return True
                                 log.warning("nftables delete handle %s failed for %s: %s", handle, ip_address, del_result.stderr.strip())
-                log.info("nftables: no matching drop rule found for %s", ip_address)
-                return True
+                                return False
+                    log.info("nftables: no matching drop rule found for %s", ip_address)
+                    return True
+                log.warning("nftables list failed for %s: %s", ip_address, list_result.stderr.strip())
+                return False
             except Exception as e:
                 log.warning("nftables unblock error for %s: %s", ip_address, e)
                 return False
@@ -1215,8 +1218,10 @@ async def _enforce_firewall_unblock(ip_address: str) -> bool:
                         )
                         log.info("ipfw rule %s removed: unblock %s", rule_num, ip_address)
                         return True
-            log.info("ipfw: no matching deny rule found for %s", ip_address)
-            return True
+                log.info("ipfw: no matching deny rule found for %s", ip_address)
+                return True
+            log.warning("ipfw list failed for %s: %s", ip_address, result.stderr.strip())
+            return False
 
         log.debug("No firewall binary found — IP %s unblock skipped (DB-only)", ip_address)
         return False
