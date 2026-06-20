@@ -52,7 +52,7 @@ export function MitrePage() {
   const loadCoverage = async () => {
     try {
       const token = useAuthStore.getState().token;
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const [coverageRes, summaryRes] = await Promise.allSettled([
         fetch('/api/v1/detect/mitre/coverage', { headers }).then(r => r.json()),
         fetch('/api/v1/detect/mitre/summary', { headers }).then(r => r.json()),

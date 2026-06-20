@@ -32,11 +32,6 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
   const isOrgUser = authUser?.purpose === 'organization' || authUser?.org_type === 'boss' || authUser?.org_type === 'staff' || !!(authUser?.org_key);
 
-  const getAgentToken = () => {
-    // Org users get their org key, individual users get their tenant_id as personal identifier
-    return authUser?.org_key || authUser?.tenant_id || '';
-  };
-
   const copyToClipboard = (text: string, event: 'org_key_copied' | 'agent_command_copied') => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -45,14 +40,15 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   };
 
   const getAgentCommand = () => {
-    const token = getAgentToken();
+    const apiUrl = window.location.origin.replace(':5173', ':8000').replace(':3000', ':8000');
     switch (selectedOS) {
       case 'windows':
-        return `python cybernova_agent.py ${token}`;
+        // Persistent installer — installs as a real app, runs 24/7, no terminal needed
+        return `$env:CYBERNOVA_API_URL=\"${apiUrl}\"; irm ${apiUrl}/agent.ps1 | iex`;
       case 'linux':
-        return `python3 cybernova_agent.py ${token}`;
+        return `CYBERNOVA_API_URL=${apiUrl} curl -s ${apiUrl}/agent.sh | python3`;
       case 'macos':
-        return `python3 cybernova_agent.py ${token}`;
+        return `CYBERNOVA_API_URL=${apiUrl} curl -s ${apiUrl}/agent.sh | python3`;
     }
   };
 
@@ -227,7 +223,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
           <div className="w-full max-w-md">
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold text-cyber-text">Install CyberNova Agent</h1>
-              <p className="text-cyber-muted mt-2">Connect your first device in seconds</p>
+              <p className="text-cyber-muted mt-2">Connect your first device — installs as a real app that runs 24/7</p>
             </div>
 
             {/* OS Selection */}
@@ -265,7 +261,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
             <div className="bg-cyber-bg border border-cyber-border rounded-lg p-4 mb-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-7 h-7 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-sm font-bold">2</div>
-                <span className="text-white font-medium">Run this command</span>
+                <span className="text-white font-medium">Run this command (as Administrator)</span>
               </div>
               {isOrgUser ? (
                 <div className="bg-black/40 rounded-lg p-3 flex items-center gap-2">
@@ -318,9 +314,10 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                 Need help with installation?
               </summary>
               <div className="mt-3 p-3 bg-cyber-bg rounded-lg text-sm text-cyber-muted space-y-2">
-                <p>1. Make sure Python is installed (python --version)</p>
-                <p>2. Check your firewall allows outbound connections</p>
-                <p>3. Ensure you have an internet connection</p>
+                <p>1. Windows: Run PowerShell as Administrator</p>
+                <p>2. Linux/macOS: Ensure Python 3 is installed (python3 --version)</p>
+                <p>3. Check your firewall allows outbound connections to the server</p>
+                <p>4. The agent installs as a background service — no terminal needed</p>
               </div>
             </details>
 

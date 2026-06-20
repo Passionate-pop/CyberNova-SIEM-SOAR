@@ -18,8 +18,8 @@ export function AddDevicePage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const windowsCmd = `$env:CYBERNOVA_API_URL="${apiUrl}"\nirm ${apiUrl}/agent.ps1 | iex`;
-  const linuxCmd = `CYBERNOVA_API_URL=${apiUrl} curl -s ${apiUrl}/agent.sh | bash`;
+  const linuxCmd = `CYBERNOVA_API_URL=${apiUrl} curl -s ${apiUrl}/agent.sh | python3`;
+  const windowsInstallCmd = `$env:CYBERNOVA_API_URL=\"${apiUrl}\"; irm ${apiUrl}/agent.ps1 | iex`;
 
   return (
     <div className="space-y-6">
@@ -32,8 +32,7 @@ export function AddDevicePage() {
 
       {/* Steps */}
       <div className="grid gap-3 sm:grid-cols-3">
-        {[
-          { step: '1', title: 'Install Agent', desc: 'Run the command below on your target machine' },
+        {[          {step: '1', title: 'Install Agent', desc: 'One command installs the agent permanently' },
           { step: '2', title: 'Auto-Detection', desc: 'Device appears in CyberNova within seconds' },
           { step: '3', title: 'See Alerts', desc: 'Security events are analyzed in real-time' },
         ].map((s) => (
@@ -50,7 +49,7 @@ export function AddDevicePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Windows */}
+        {/* Windows — Persistent Installer (Recommended) */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
@@ -58,16 +57,21 @@ export function AddDevicePage() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-cyber-text">Windows Agent</h3>
-              <p className="text-xs text-cyber-muted">PowerShell — runs as current user</p>
+              <p className="text-xs text-cyber-muted">Installs as a real app — runs 24/7</p>
             </div>
           </div>
-          <p className="text-xs text-cyber-muted mb-3">Run in PowerShell (Admin recommended):</p>
+          <div className="mb-3 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+            <p className="text-[11px] text-green-400 flex items-center gap-1">
+              <Shield size={11} /> Recommended — runs in background, starts on boot, no terminal needed
+            </p>
+          </div>
+          <p className="text-xs text-cyber-muted mb-3">Run in PowerShell (Admin):</p>
           <div className="relative">
             <pre className="rounded-lg bg-cyber-bg border border-cyber-border p-4 pr-12 overflow-x-auto text-xs text-cyber-text font-mono whitespace-pre-wrap">
-              {windowsCmd}
+              {windowsInstallCmd}
             </pre>
             <button
-              onClick={() => copyToClipboard(windowsCmd, 'windows')}
+              onClick={() => copyToClipboard(windowsInstallCmd, 'windows')}
               className="absolute right-3 top-3 rounded-md p-1.5 text-cyber-muted hover:bg-cyber-border hover:text-cyber-text transition-colors"
             >
               {copied === 'windows' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
@@ -75,12 +79,12 @@ export function AddDevicePage() {
           </div>
           <div className="mt-4 p-3 rounded-lg bg-cyber-bg/50 border border-cyber-border/50">
             <p className="text-[11px] text-cyber-muted">
-              Collects: Security + System Event Logs. Interval: 5s. No persistence — stops when terminal closes.
+              Installs to Program Files. Creates desktop icon, auto-starts on boot. No terminal window needed.
             </p>
           </div>
         </Card>
 
-        {/* Linux */}
+        {/* Linux — Persistent Installer */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
@@ -88,8 +92,13 @@ export function AddDevicePage() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-cyber-text">Linux Agent</h3>
-              <p className="text-xs text-cyber-muted">Python — requires Python 3</p>
+              <p className="text-xs text-cyber-muted">Systemd service — runs 24/7</p>
             </div>
+          </div>
+          <div className="mb-3 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+            <p className="text-[11px] text-green-400 flex items-center gap-1">
+              <Shield size={11} /> Installs as systemd service — auto-starts on boot
+            </p>
           </div>
           <p className="text-xs text-cyber-muted mb-3">Run in terminal:</p>
           <div className="relative">
@@ -105,7 +114,7 @@ export function AddDevicePage() {
           </div>
           <div className="mt-4 p-3 rounded-lg bg-cyber-bg/50 border border-cyber-border/50">
             <p className="text-[11px] text-cyber-muted">
-              Reads: /var/log/auth.log, /var/log/syslog. Interval: 5s. Requires read access to log files.
+              Reads: /var/log/auth.log, /var/log/syslog. Registers as systemd service for persistence.
             </p>
           </div>
         </Card>

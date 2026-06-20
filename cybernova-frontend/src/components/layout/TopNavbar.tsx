@@ -28,6 +28,7 @@ const pageTitles: Record<Page, string> = {
   analytics: 'Analytics Dashboard',
   'add-device': 'Add Device',
   'rate-limits': 'Rate Limit Dashboard',
+  mitre: 'MITRE ATT&CK Coverage',
 };
 
 const pageDescriptions: Record<Page, string> = {
@@ -46,6 +47,7 @@ const pageDescriptions: Record<Page, string> = {
   analytics: 'Analytics and performance insights',
   'add-device': 'Install and configure a new monitoring agent',
   'rate-limits': 'Monitor rate limit usage across all request categories',
+  mitre: 'Detection coverage across the MITRE ATT&CK framework',
 };
 
 export function TopNavbar({ currentPage, username, role = 'viewer' }: TopNavbarProps) {

@@ -1037,10 +1037,34 @@ async def _reset_mfa_by_id(user_id: str, db: AsyncSession, user: CurrentUser, te
     return ActionResponse(success=True, message=f"MFA reset requested for {target.email}")
 
 
+def _is_running_in_docker() -> bool:
+    """Detect if we're running inside a Docker container."""
+    if Path("/.dockerenv").exists():
+        return True
+    try:
+        with open("/proc/1/cgroup", "r") as f:
+            content = f.read()
+            if "docker" in content or "kubepods" in content or "lxc" in content:
+                return True
+    except (OSError, PermissionError):
+        pass
+    return False
+
+
 async def _enforce_firewall_block(ip_address: str) -> bool:
-    """Apply firewall block rule at the system level (Windows + Linux)."""
+    """Apply firewall block rule at the system level (Windows + Linux).
+    
+    When running inside a Docker container, the backend cannot modify the host's
+    firewall rules. In that case we skip the actual firewall enforcement and let
+    the caller know so it can fall back to DB-only blocking.
+    """
     import platform as _platform
     system = _platform.system().lower()
+
+    # Inside a Docker container we can't touch the host firewall
+    if _is_running_in_docker():
+        log.info("Running inside Docker — IP %s blocked in DB only (firewall enforcement skipped)", ip_address)
+        return False
 
     try:
         # ── Windows: netsh advfirewall ──
@@ -1068,25 +1092,34 @@ async def _enforce_firewall_block(ip_address: str) -> bool:
         # ── Linux: iptables ──
         if Path("/sbin/iptables").exists() or Path("/usr/sbin/iptables").exists():
             rule = ["iptables", "-A", "INPUT", "-s", ip_address, "-j", "DROP"]
-            await asyncio.to_thread(subprocess.run, rule, capture_output=True, timeout=10)
+            proc1 = await asyncio.to_thread(subprocess.run, rule, capture_output=True, text=True, timeout=10)
             rule2 = ["iptables", "-A", "FORWARD", "-s", ip_address, "-j", "DROP"]
-            await asyncio.to_thread(subprocess.run, rule2, capture_output=True, timeout=10)
-            log.info("iptables rule applied: block %s", ip_address)
-            return True
+            proc2 = await asyncio.to_thread(subprocess.run, rule2, capture_output=True, text=True, timeout=10)
+            if proc1.returncode == 0 and proc2.returncode == 0:
+                log.info("iptables rule applied: block %s", ip_address)
+                return True
+            log.warning("iptables failed for %s: %s / %s", ip_address, proc1.stderr.strip(), proc2.stderr.strip())
+            return False
 
         # ── Linux: nftables ──
         if Path("/sbin/nft").exists() or Path("/usr/sbin/nft").exists():
             rule = ["nft", "add", "rule", "inet", "filter", "INPUT", "ip", "saddr", ip_address, "drop"]
-            await asyncio.to_thread(subprocess.run, rule, capture_output=True, timeout=10)
-            log.info("nftables rule applied: block %s", ip_address)
-            return True
+            proc = await asyncio.to_thread(subprocess.run, rule, capture_output=True, text=True, timeout=10)
+            if proc.returncode == 0:
+                log.info("nftables rule applied: block %s", ip_address)
+                return True
+            log.warning("nftables failed for %s: %s", ip_address, proc.stderr.strip())
+            return False
 
         # ── BSD/macOS: ipfw ──
         if Path("/sbin/ipfw").exists() or Path("/usr/sbin/ipfw").exists():
             rule = ["ipfw", "add", "deny", "ip", "from", ip_address, "to", "any"]
-            await asyncio.to_thread(subprocess.run, rule, capture_output=True, timeout=10)
-            log.info("ipfw rule applied: block %s", ip_address)
-            return True
+            proc = await asyncio.to_thread(subprocess.run, rule, capture_output=True, text=True, timeout=10)
+            if proc.returncode == 0:
+                log.info("ipfw rule applied: block %s", ip_address)
+                return True
+            log.warning("ipfw failed for %s: %s", ip_address, proc.stderr.strip())
+            return False
 
         log.debug("No firewall binary found — IP %s blocked in DB only", ip_address)
         return False

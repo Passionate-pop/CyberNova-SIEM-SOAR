@@ -181,7 +181,7 @@ export interface Playbook {
 }
 
 // ================== Response / Actions ==================
-export type ActionType = 'block_ip' | 'kill_process' | 'isolate_device' | 'trigger_automation' | 'send_notification' | 'create_ticket';
+export type ActionType = 'block_ip' | 'unblock_ip' | 'kill_process' | 'isolate_device' | 'trigger_automation' | 'send_notification' | 'create_ticket';
 
 export interface ResponseAction {
   id?: string;

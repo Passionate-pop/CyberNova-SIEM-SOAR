@@ -532,6 +532,7 @@ class TestSOARStage:
         assert stage._determine_action("credential_theft", "critical") == "block_ip"
         assert stage._determine_action("data_exfiltration", "critical") == "block_ip"
         assert stage._determine_action("unknown_alert", "critical") == "block_ip"
-        # High severity: alert admin only, no auto-block to prevent false positives
-        assert stage._determine_action("anything", "high") == "alert_admin"
+        # High severity: auto-block source IP (risk threshold applied in caller)
+        # _determine_action is only called when risk_score >= 70 in process()
+        assert stage._determine_action("anything", "high") == "block_ip"
         assert stage._determine_action("anything", "low") is None

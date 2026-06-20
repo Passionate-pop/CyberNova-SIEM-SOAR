@@ -330,7 +330,7 @@ async def execute_response_action(
 ):
     from cybernova.core.utils.helpers import new_id, utcnow
     from cybernova.config.constants import ActionStatus
-    from cybernova.response.routes.soar_actions import _enforce_firewall_block
+    from cybernova.response.routes.soar_actions import _enforce_firewall_block, _enforce_firewall_unblock
 
     action_type = body.get("action_type", "manual")
     target = body.get("target", "")
@@ -355,30 +355,54 @@ async def execute_response_action(
 
     try:
         if action_type == "block_ip":
+            # Always record the IP in blocked_ips (DB is the source of truth;
+            # firewall enforcement is best-effort, especially inside Docker)
+            from cybernova.database.postgres.models import BlockedIP
+            existing = await db.execute(
+                select(BlockedIP).where(
+                    BlockedIP.tenant_id == tenant_id,
+                    BlockedIP.ip_address == target,
+                )
+            )
+            if not existing.scalar_one_or_none():
+                blocked = BlockedIP(
+                    tenant_id=tenant_id,
+                    ip_address=target,
+                    reason=f"Blocked via ResponsePage by {user.email}",
+                    blocked_by=user.id,
+                )
+                db.add(blocked)
+                await db.commit()
+
+            # Best-effort firewall enforcement
             fw_ok = await _enforce_firewall_block(target)
             if fw_ok:
-                # Also record in blocked_ips table
-                from cybernova.database.postgres.models import BlockedIP
-                existing = await db.execute(
-                    select(BlockedIP).where(
-                        BlockedIP.tenant_id == tenant_id,
-                        BlockedIP.ip_address == target,
-                    )
-                )
-                if not existing.scalar_one_or_none():
-                    blocked = BlockedIP(
-                        tenant_id=tenant_id,
-                        ip_address=target,
-                        reason=f"Blocked via ResponsePage by {user.email}",
-                        blocked_by=user.id,
-                    )
-                    db.add(blocked)
-                    await db.commit()
                 success = True
-                result_msg = f"IP {target} blocked via firewall"
+                result_msg = f"IP {target} blocked (firewall + DB)"
             else:
-                result_msg = f"IP {target} blocked in DB (firewall unavailable)"
-                success = True  # DB record is still created
+                success = True  # DB record exists — still counts as success
+                result_msg = f"IP {target} blocked in database"
+
+        elif action_type == "unblock_ip":
+            # Remove IP from blocked_ips table
+            from cybernova.database.postgres.models import BlockedIP
+            blocked_result = await db.execute(
+                select(BlockedIP).where(
+                    BlockedIP.tenant_id == tenant_id,
+                    BlockedIP.ip_address == target,
+                )
+            )
+            blocked_entry = blocked_result.scalar_one_or_none()
+            if blocked_entry:
+                await db.delete(blocked_entry)
+                await db.commit()
+                # Best-effort firewall unblock
+                await _enforce_firewall_unblock(target)
+                success = True
+                result_msg = f"IP {target} unblocked"
+            else:
+                result_msg = f"IP {target} not found in blocked list"
+                success = False
 
         elif action_type == "isolate_device":
             # Look up device by hostname or IP

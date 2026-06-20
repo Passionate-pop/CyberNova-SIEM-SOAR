@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Ban, Skull, Unplug, Zap, Clock, CheckCircle, XCircle, Loader, History, Lock, Shield, Search, ArrowUpDown, Filter, Bug } from 'lucide-react';
+import { Ban, Skull, Unplug, Zap, Clock, CheckCircle, XCircle, Loader, History, Lock, Shield, Search, ArrowUpDown, Filter, Bug, CheckCheck } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -46,6 +46,14 @@ const actionConfigs: ActionConfig[] = [
     icon: <Unplug size={24} />,
     color: 'from-amber-500/20 to-amber-500/5 border-amber-500/30 hover:border-amber-500/50',
     placeholder: 'Enter hostname (e.g., WKS-042)',
+  },
+  {
+    type: 'unblock_ip',
+    label: 'Unblock IP',
+    description: 'Remove a previously blocked IP from the firewall',
+    icon: <CheckCheck size={24} />,
+    color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 hover:border-emerald-500/50',
+    placeholder: 'Enter IP address to unblock (e.g., 192.168.1.100)',
   },
   {
     type: 'trigger_automation',
@@ -290,6 +298,7 @@ export function ResponsePage() {
             >
               <option value="all">All Actions</option>
               <option value="block_ip">Block IP</option>
+              <option value="unblock_ip">Unblock IP</option>
               <option value="isolate_device">Isolate Device</option>
               <option value="kill_process">Kill Process</option>
               <option value="trigger_automation">Trigger Automation</option>

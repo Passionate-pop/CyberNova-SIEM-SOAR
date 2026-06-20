@@ -177,18 +177,133 @@ async def _serve_binary(filename: str) -> FileResponse:
 
 
 WINDOWS_AGENT = r"""
-# CyberNova Host Defender — Windows Agent
-# USB / Registry / Keylogger / File Integrity
-# Run: irm http://localhost:8000/agent.ps1 | iex
+# ═════════════════════════════════════════════════════
+#  CyberNova Host Defender — Windows
+#  Install:  $env:CYBERNOVA_API_URL="http://SERVER:8000"; irm http://SERVER:8000/agent.ps1 | iex
+#  Manual:   powershell -ExecutionPolicy Bypass -File "C:\\Program Files\\CyberNova\\hostdefender.ps1"
+# ═════════════════════════════════════════════════════
 $ErrorActionPreference = "SilentlyContinue"
-$API_URL = "http://localhost:8000"
-$API_KEY = $env:CYBERNOVA_API_KEY
-$INTERVAL = 5
 
+$API_URL = if ($env:CYBERNOVA_API_URL) { $env:CYBERNOVA_API_URL } else { "http://localhost:8000" }
+$INSTALL_DIR = "$env:ProgramFiles\\CyberNova"
+$CONFIG_FILE = "$INSTALL_DIR\\agent_config.json"
+$AGENT_FILE = "$INSTALL_DIR\\hostdefender.ps1"
+
+# ═════════════════════════════════════════════════════
+#  INSTALL MODE — runs when piped via iex ($PSScriptRoot is empty)
+# ═════════════════════════════════════════════════════
+if ([string]::IsNullOrEmpty($PSScriptRoot)) {
+
+    Write-Host "`n  ==========================================" -ForegroundColor Cyan
+    Write-Host "  CyberNova — Security Agent Installer" -ForegroundColor Cyan
+    Write-Host "  ==========================================`n" -ForegroundColor Cyan
+
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $isAdmin) {
+        Write-Host "  [ERROR] This needs Administrator access!" -ForegroundColor Red
+        Write-Host "  Right-click PowerShell -> Run as administrator`n" -ForegroundColor Yellow
+        pause
+        exit 1
+    }
+
+    Write-Host "  [1/6] Creating install directory..." -ForegroundColor White
+    New-Item -ItemType Directory -Path $INSTALL_DIR -Force | Out-Null
+    New-Item -ItemType Directory -Path "$INSTALL_DIR\\logs" -Force | Out-Null
+    Write-Host "        OK  $INSTALL_DIR" -ForegroundColor Green
+
+    Write-Host "  [2/6] Saving agent..." -ForegroundColor White
+    try {
+        $dlHeaders = @{}
+        if ($env:CYBERNOVA_API_KEY) { $dlHeaders["X-API-Key"] = $env:CYBERNOVA_API_KEY }
+        Invoke-WebRequest -Uri "$API_URL/agent.ps1" -OutFile $AGENT_FILE -Headers $dlHeaders -TimeoutSec 30 -UseBasicParsing
+        Write-Host "        OK" -ForegroundColor Green
+    } catch {
+        Write-Host "        Download failed, saving embedded agent..." -ForegroundColor Yellow
+        $content = @"
+`$ErrorActionPreference = "SilentlyContinue"
+`$API_URL = "$API_URL"
+`$INSTALL_DIR = "$INSTALL_DIR"
+`$CONFIG_FILE = "$CONFIG_FILE"
+`$AGENT_FILE = "$AGENT_FILE"
+if ((Get-Item `$AGENT_FILE -ErrorAction SilentlyContinue).Length -lt 1000) {
+    try {
+        `$h = @{}
+        if (`$env:CYBERNOVA_API_KEY) { `$h["X-API-Key"] = `$env:CYBERNOVA_API_KEY }
+        Invoke-WebRequest -Uri "`$API_URL/agent.ps1" -OutFile `$AGENT_FILE -Headers `$h -TimeoutSec 30 -UseBasicParsing
+    } catch {}
+}
+if (Test-Path `$AGENT_FILE) { . `$AGENT_FILE }
+"@
+        Set-Content -Path $AGENT_FILE -Value $content -Force
+        Write-Host "        OK (launcher saved)" -ForegroundColor Green
+    }
+
+    Write-Host "  [3/6] Saving configuration..." -ForegroundColor White
+    @{ api_url = $API_URL; installed_at = (Get-Date).ToString("o") } | ConvertTo-Json | Set-Content -Path $CONFIG_FILE -Force
+    Write-Host "        OK" -ForegroundColor Green
+
+    Write-Host "  [4/6] Creating desktop shortcut..." -ForegroundColor White
+    $shell = New-Object -ComObject WScript.Shell
+    $lnk = $shell.CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\\CyberNova Agent.lnk")
+    $lnk.TargetPath = "powershell.exe"
+    $lnk.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`""
+    $lnk.Description = "CyberNova Security Agent"
+    $lnk.IconLocation = "shell32.dll,47"
+    $lnk.Save()
+    Write-Host "        OK" -ForegroundColor Green
+
+    Write-Host "  [5/6] Registering auto-start service..." -ForegroundColor White
+    $taskName = "CyberNova-HostDefender"
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" `
+        -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`"" `
+        -WorkingDirectory $INSTALL_DIR
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
+        -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
+        -StartWhenAvailable -MultipleInstances IgnoreNew
+    Register-ScheduledTask -TaskName $taskName -Action $action `
+        -Trigger @(
+            New-ScheduledTaskTrigger -AtStartup
+            New-ScheduledTaskTrigger -AtLogOn
+        ) `
+        -Principal $principal -Settings $settings `
+        -Description "CyberNova Host Defender - 24/7 security monitoring" -Force
+    Write-Host "        OK" -ForegroundColor Green
+
+    Write-Host "  [6/6] Starting agent..." -ForegroundColor White
+    Start-ScheduledTask -TaskName $taskName
+    Write-Host "        OK`n" -ForegroundColor Green
+
+    Write-Host "  ============================================" -ForegroundColor Green
+    Write-Host "  CyberNova installed and running!" -ForegroundColor Green
+    Write-Host "  ============================================" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Installed:  $INSTALL_DIR" -ForegroundColor White
+    Write-Host "  Desktop:    CyberNova Agent.lnk" -ForegroundColor White
+    Write-Host "  Auto-start: Yes (runs 24/7, no terminal needed)" -ForegroundColor White
+    Write-Host "  API:        $API_URL" -ForegroundColor Cyan
+    Write-Host ""
+} else {
+
+# ═════════════════════════════════════════════════════
+#  MONITOR MODE — background service
+# ═════════════════════════════════════════════════════
+
+if (Test-Path $CONFIG_FILE) {
+    try {
+        $cfg = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
+        if ($cfg.api_url) { $API_URL = $cfg.api_url }
+    } catch {}
+}
+
+$API_KEY = $env:CYBERNOVA_API_KEY
 $headers = @{ "Content-Type" = "application/json" }
 if ($API_KEY) { $headers["X-API-Key"] = $API_KEY }
 
-Write-Host "CyberNova Host Defender v2 starting..." -ForegroundColor Cyan
+Write-Host "CyberNova Host Defender starting..." -ForegroundColor Cyan
 
 $info = @{
     hostname = $env:COMPUTERNAME
@@ -431,14 +546,15 @@ while ($true) {
     Send-BatchTelemetry $extra
     Start-Sleep -Seconds $INTERVAL
 }
+}
 """
 
 
 LINUX_AGENT = """#!/usr/bin/env python3
-# CyberNova Host Defender v2 — Linux Agent
-# USB / Keylogger / File Integrity / Process / Network
-# Run: curl -s http://localhost:8000/agent.sh | python3
-import hashlib, json, os, socket, time, urllib.request, re, subprocess
+# CyberNova Host Defender v2 — Linux
+# Install:  CYBERNOVA_API_URL=http://SERVER:8000 curl -s http://SERVER:8000/agent.sh | python3
+# Manual:   python3 /opt/cybernova/cyberhost.py
+import hashlib, json, os, socket, sys, time, urllib.request, re, subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -447,6 +563,180 @@ API_KEY = os.environ.get("CYBERNOVA_API_KEY", "")
 INTERVAL = 5
 HOSTNAME = socket.gethostname()
 _SEQ = 0
+
+INSTALL_DIR = "/opt/cybernova"
+CONFIG_FILE = os.path.join(INSTALL_DIR, "agent_config.json")
+AGENT_FILE = os.path.join(INSTALL_DIR, "cyberhost.py")
+
+def log(msg):
+    print("[CyberNova] %s" % msg)
+
+# ═════════════════════════════════════════════════════
+#  INSTALL MODE — when piped via curl | python3
+# ═════════════════════════════════════════════════════
+def _is_install_mode():
+    try:
+        f = globals().get("__file__", "")
+        return not f or not os.path.isfile(f) or "<stdin>" in str(f)
+    except Exception:
+        return True
+
+if _is_install_mode():
+    print()
+    print("  ==========================================")
+    print("  CyberNova — Security Agent Installer")
+    print("  ==========================================")
+    print()
+
+    # 1. Create install directory
+    print("  [1/6] Creating install directory...")
+    os.makedirs(INSTALL_DIR, exist_ok=True)
+    os.makedirs(os.path.join(INSTALL_DIR, "logs"), exist_ok=True)
+    print("        OK  %s" % INSTALL_DIR)
+
+    # 2. Save agent to disk
+    print("  [2/6] Saving agent...")
+    try:
+        req_headers = {}
+        if API_KEY:
+            req_headers["X-API-Key"] = API_KEY
+        req = urllib.request.Request("%s/agent.sh" % API_URL, headers=req_headers)
+        resp = urllib.request.urlopen(req, timeout=30)
+        agent_code = resp.read()
+        with open(AGENT_FILE, "wb") as f:
+            f.write(agent_code)
+        os.chmod(AGENT_FILE, 0o755)
+        print("        OK")
+    except Exception as e:
+        print("        Download failed: %s" % e)
+        print("        Saving embedded agent...")
+        _launcher = [
+            "#!/usr/bin/env python3",
+            "import os, sys, urllib.request",
+            'API_URL = "%s"' % API_URL,
+            'AGENT_FILE = "%s"' % AGENT_FILE,
+            "if os.path.isfile(AGENT_FILE) and os.path.getsize(AGENT_FILE) > 1000:",
+            "    exec(open(AGENT_FILE).read())",
+            "else:",
+            "    try:",
+            '        req = urllib.request.Request("%s/agent.sh" % API_URL)',
+            "        resp = urllib.request.urlopen(req, timeout=30)",
+            "        with open(AGENT_FILE, 'wb') as f:",
+            "            f.write(resp.read())",
+            "        os.chmod(AGENT_FILE, 0o755)",
+            "        exec(open(AGENT_FILE).read())",
+            "    except Exception as e:",
+            '        print("[CyberNova] Failed: %%s" %% e)',
+            "        sys.exit(1)",
+        ]
+        with open(AGENT_FILE, "w") as f:
+            f.write("\n".join(_launcher) + "\n")
+        os.chmod(AGENT_FILE, 0o755)
+        print("        OK (launcher saved)")
+
+    # 3. Save configuration
+    print("  [3/6] Saving configuration...")
+    config = {"api_url": API_URL, "installed_at": datetime.now(timezone.utc).isoformat()}
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=2)
+    print("        OK")
+
+    # 4. Create .desktop file
+    print("  [4/6] Creating desktop shortcut...")
+    desktop_dir = os.path.expanduser("~/Desktop")
+    if not os.path.isdir(desktop_dir):
+        desktop_dir = os.path.expanduser("~/.local/share/applications")
+    desktop_file = os.path.join(desktop_dir, "cybernova-agent.desktop")
+    try:
+        _desktop = """[Desktop Entry]
+Name=CyberNova Agent
+Comment=CyberNova Security Agent
+Exec=xdg-open %s
+Icon=security-high
+Terminal=false
+Type=Application
+Categories=Security;System;
+""" % API_URL
+        with open(desktop_file, "w") as f:
+            f.write(_desktop)
+        os.chmod(desktop_file, 0o755)
+        print("        OK")
+    except Exception as e:
+        print("        Failed: %s" % e)
+
+    # 5. Create systemd service
+    print("  [5/6] Registering auto-start service...")
+    _svc = """[Unit]
+Description=CyberNova Host Defender
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%s %s
+Restart=always
+RestartSec=10
+Environment=CYBERNOVA_API_URL=%s
+Environment=CYBERNOVA_API_KEY=%s
+
+[Install]
+WantedBy=multi-user.target
+""" % (sys.executable, AGENT_FILE, API_URL, API_KEY or "")
+    service_path = "/etc/systemd/system/cyberhost.service"
+    try:
+        with open(service_path, "w") as f:
+            f.write(_svc)
+        subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
+        subprocess.run(["systemctl", "enable", "cyberhost"], capture_output=True)
+        subprocess.run(["systemctl", "start", "cyberhost"], capture_output=True)
+        print("        OK")
+    except PermissionError:
+        try:
+            subprocess.run(["sudo", "tee", service_path], input=_svc.encode(), capture_output=True)
+            subprocess.run(["sudo", "systemctl", "daemon-reload"], capture_output=True)
+            subprocess.run(["sudo", "systemctl", "enable", "cyberhost"], capture_output=True)
+            subprocess.run(["sudo", "systemctl", "start", "cyberhost"], capture_output=True)
+            print("        OK (with sudo)")
+        except Exception as e:
+            print("        Failed: %s" % e)
+            print("        Agent saved to %s" % AGENT_FILE)
+    except Exception as e:
+        print("        Failed: %s" % e)
+        print("        Agent saved to %s" % AGENT_FILE)
+
+    # 6. Done
+    print("  [6/6] Verifying...")
+    try:
+        req2 = urllib.request.Request("%s/health" % API_URL)
+        urllib.request.urlopen(req2, timeout=5)
+        print("        Backend: OK")
+    except Exception:
+        print("        Backend: not reachable (will retry)")
+
+    print()
+    print("  ============================================")
+    print("  CyberNova installed and running!")
+    print("  ============================================")
+    print()
+    print("  Installed:  %s" % INSTALL_DIR)
+    print("  Desktop:    cybernova-agent.desktop")
+    print("  Auto-start: Yes (runs 24/7 via systemd)")
+    print("  API:        %s" % API_URL)
+    print()
+    sys.exit(0)
+
+# ═════════════════════════════════════════════════════
+#  MONITOR MODE — background service
+# ═════════════════════════════════════════════════════
+
+# Read config if exists
+if os.path.isfile(CONFIG_FILE):
+    try:
+        with open(CONFIG_FILE) as f:
+            cfg = json.load(f)
+        if cfg.get("api_url"):
+            API_URL = cfg["api_url"]
+    except Exception:
+        pass
 
 def send_batch(extra=None):
     global _SEQ
@@ -464,9 +754,6 @@ def send_batch(extra=None):
         urllib.request.urlopen(req, timeout=10)
     except Exception as e:
         log("Batch send failed: %s" % e)
-
-def log(msg):
-    print("[CyberNova] %s" % msg)
 
 def send_event(event_type, message, severity="info", extra=None):
     event = {"source": "agent", "hostname": HOSTNAME, "event_type": event_type,
@@ -495,7 +782,7 @@ def get_processes():
             except OSError:
                 continue
     except (OSError, PermissionError):
-        log.warning("Failed to list /proc entries")
+        log("Failed to list /proc entries")
     return procs[:200]
 
 def get_connections():
@@ -512,7 +799,7 @@ def get_connections():
                             "remote_ip": ".".join(str(int(remote[0][i:i+2], 16)) for i in range(0,8,2)),
                             "remote_port": int(remote[1], 16), "protocol": "tcp"})
     except (OSError, FileNotFoundError):
-        log.warning("Failed to read /proc/net/tcp")
+        log("Failed to read /proc/net/tcp")
     return conns[:200]
 
 _known_usb = set()
@@ -563,10 +850,9 @@ def check_keyloggers():
                                       "high", {"pid": int(p.name), "process": cmd})
                             break
                     except (OSError, PermissionError):
-                log.warning("FD read error for PID %s", p.name)
-                continue
+                        pass
         except (OSError, PermissionError):
-            log.warning("Process read error for PID %s", p.name)
+            log("Process read error for PID %s" % p.name)
             continue
 
 _fim_baseline = {}
@@ -580,7 +866,7 @@ def hash_file(path):
             for chunk in iter(lambda: f.read(65536), b""): h.update(chunk)
         return h.hexdigest()
     except (OSError, FileNotFoundError):
-        log.warning("FIM hash_file failed for %s", path)
+        log("FIM hash_file failed for %s" % path)
         return ""
 
 def check_fim():

@@ -32,6 +32,7 @@ const ICONS: Record<string, React.ReactNode> = {
   ScrollText: <ScrollText size={20} />,
   BarChart3: <BarChart3 size={20} />,
   Cpu: <Cpu size={20} />,
+  Crosshair: <Crosshair size={20} />,
 };
 
 const adminNav: { id: Page; label: string; icon: string; permission?: string }[] = [

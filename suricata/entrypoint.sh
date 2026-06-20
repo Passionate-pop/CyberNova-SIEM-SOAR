@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Clean up stale PID file from previous runs (container restart without full recreate)
+rm -f /var/run/suricata.pid /var/log/suricata/suricata.pid 2>/dev/null || true
+
 # Set up nfqueue iptables rules
 # Requires --cap-add=NET_ADMIN
 IPTABLES=iptables
@@ -8,7 +11,7 @@ if [ -x /sbin/iptables ]; then
     IPTABLES=/sbin/iptables
 fi
 
-# Allow loopback traffic to bypass NFQUEUE (critical for event_bridge to reach localhost:8000)
+# Allow loopback traffic to bypass NFQUEUE (critical for event_bridge to reach backend)
 $IPTABLES -I INPUT -i lo -j ACCEPT 2>/dev/null || echo "[entrypoint] iptables loopback INPUT bypass skipped"
 $IPTABLES -I OUTPUT -o lo -j ACCEPT 2>/dev/null || echo "[entrypoint] iptables loopback OUTPUT bypass skipped"
 

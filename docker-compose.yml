@@ -616,7 +616,7 @@ services:
     environment:
       BACKEND_URL: http://backend:8000
       ADMIN_USER: ${ADMIN_USER:-admin}
-      ADMIN_PASS: ${ADMIN_PASS:-admin123!}
+      ADMIN_PASS: Admin2026!
       SENSOR_HOSTNAME: suricata-sensor-1
       EVE_PATH: /var/log/suricata/eve.json
     depends_on:

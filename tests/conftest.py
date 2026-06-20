@@ -127,6 +127,17 @@ def _patch_redis_unavailable():
     except (ImportError, AttributeError):
         pass
 
+    # 8. Null out _redis on the anomaly baseline module-level singleton.
+    #    EventBaseline.__init__() calls _get_sync_redis() at module import
+    #    time, so even with the function patched above, the singleton already
+    #    holds a real Redis client reference.
+    try:
+        from cybernova.detection.anomaly.baseline import event_baseline
+        if hasattr(event_baseline, "_redis"):
+            event_baseline._redis = None
+    except (ImportError, AttributeError):
+        pass
+
     yield
 
     for p in patches:

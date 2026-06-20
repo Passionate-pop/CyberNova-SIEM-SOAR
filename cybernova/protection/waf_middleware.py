@@ -22,6 +22,8 @@ SKIP_PREFIXES = frozenset({
     "/api/rag/",
     "/api/v1/ingest/",  # Security events contain attack payloads — that's the data to analyze
     "/api/v1/auth/",   # Auth endpoints — browser Origin/Referer headers contain localhost URLs, causing SSRF false positives
+    "/api/v1/soar/",   # SOAR actions — internal API calls for incident response
+    "/api/v1/dashboard/response/action",  # Dashboard SOAR action execution
 })
 
 # Paths where we skip body inspection only (still check query params and headers)
