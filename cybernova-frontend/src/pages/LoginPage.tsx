@@ -174,10 +174,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       userData.company_size = userData.company_size || (companySize || undefined);
 
       localStorage.setItem('cybernova_user_role', userData.role);
-      // NOTE: purpose is intentionally NOT set here.
-      // After login, App.tsx will show OnboardingPage for first-time users
-      // (terms acceptance, agent install, device connection).
-      // OnboardingPage sets cybernova_purpose when complete.
+      // Set purpose so App.tsx knows the user's context after login.
+      // For returning users this prevents an unnecessary redirect to OnboardingPage.
+      // OnboardingPage will still appear for first-time users who haven't set
+      // cybernova_onboarding_complete yet.
+      localStorage.setItem('cybernova_purpose', purpose || userData.purpose || 'individual');
       if (purpose === 'organization') {
         localStorage.setItem('cybernova_org_type', orgType || '');
         // Use org_name from JWT (backend-provided) as primary, fallback to local state

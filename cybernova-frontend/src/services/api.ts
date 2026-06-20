@@ -645,7 +645,7 @@ export async function fetchDevices(): Promise<Device[]> {
 
 export async function fetchUsers(): Promise<User[]> {
   try {
-    const result = await safeFetch<{ users: Array<Record<string, unknown>>; total: number }>('/api/v1/admin/users');
+    const result = await safeFetch<{ users: Array<Record<string, unknown>>; total: number }>('/api/v1/admin/users/');
     if (result.users && result.users.length > 0) {
       return (result.users || []).map((u) => ({
         id: (u.id as string) || '',
