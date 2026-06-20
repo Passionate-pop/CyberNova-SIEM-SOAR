@@ -648,7 +648,7 @@ if _is_install_mode():
         desktop_dir = os.path.expanduser("~/.local/share/applications")
     desktop_file = os.path.join(desktop_dir, "cybernova-agent.desktop")
     try:
-        _desktop = """[Desktop Entry]
+        _desktop = \"\"\"[Desktop Entry]
 Name=CyberNova Agent
 Comment=CyberNova Security Agent
 Exec=xdg-open %s
@@ -656,7 +656,7 @@ Icon=security-high
 Terminal=false
 Type=Application
 Categories=Security;System;
-""" % API_URL
+\"\"\" % API_URL
         with open(desktop_file, "w") as f:
             f.write(_desktop)
         os.chmod(desktop_file, 0o755)
@@ -666,7 +666,7 @@ Categories=Security;System;
 
     # 5. Create systemd service
     print("  [5/6] Registering auto-start service...")
-    _svc = """[Unit]
+    _svc = \"\"\"[Unit]
 Description=CyberNova Host Defender
 After=network.target
 
@@ -680,7 +680,7 @@ Environment=CYBERNOVA_API_KEY=%s
 
 [Install]
 WantedBy=multi-user.target
-""" % (sys.executable, AGENT_FILE, API_URL, API_KEY or "")
+\"\"\" % (sys.executable, AGENT_FILE, API_URL, API_KEY or "")
     service_path = "/etc/systemd/system/cyberhost.service"
     try:
         with open(service_path, "w") as f:

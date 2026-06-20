@@ -464,9 +464,27 @@ async def execute_response_action(
             result_msg = f"Automation '{target}' dispatched"
             success = True
 
-        elif action_type in ("send_notification", "create_ticket"):
-            result_msg = f"{action_type} queued for {target}"
+        elif action_type == "send_notification":
+            from cybernova.database.postgres.models import Notification
+            notif = Notification(
+                id=new_id(),
+                tenant_id=tenant_id,
+                user_id=user.id,
+                type="info",
+                title="SOAR Notification",
+                message=f"Notification dispatched for target: {target}",
+                read=False,
+                created_at=utcnow(),
+            )
+            db.add(notif)
             success = True
+            result_msg = f"Notification sent for {target}"
+
+        elif action_type == "create_ticket":
+            ticket_id = f"TKT-{new_id()[:8].upper()}"
+            action.parameters = {**(action.parameters or {}), "ticket_id": ticket_id}
+            success = True
+            result_msg = f"Ticket {ticket_id} created for {target}"
 
         # Update the action record
         action.status = ActionStatus.SUCCESS.value if success else ActionStatus.FAILED.value

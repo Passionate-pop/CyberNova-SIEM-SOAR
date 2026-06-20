@@ -1133,6 +1133,11 @@ async def _enforce_firewall_unblock(ip_address: str) -> bool:
     import platform as _platform
     system = _platform.system().lower()
 
+    # Inside a Docker container we can't touch the host firewall
+    if _is_running_in_docker():
+        log.info("Running inside Docker — IP %s unblock skipped (firewall enforcement skipped)", ip_address)
+        return False
+
     try:
         if system == "windows":
             rule_name = f"CyberNova_Block_{ip_address.replace('.', '_')}"
@@ -1150,7 +1155,7 @@ async def _enforce_firewall_unblock(ip_address: str) -> bool:
             log.warning("Windows Firewall delete rule failed for %s: %s", ip_address, result.stderr.strip())
             return False
 
-        # Linux: remove iptables rules
+        # ── Linux: remove iptables rules ──
         if Path("/sbin/iptables").exists() or Path("/usr/sbin/iptables").exists():
             rule = ["iptables", "-D", "INPUT", "-s", ip_address, "-j", "DROP"]
             await asyncio.to_thread(subprocess.run, rule, capture_output=True, timeout=10)
@@ -1159,6 +1164,61 @@ async def _enforce_firewall_unblock(ip_address: str) -> bool:
             log.info("iptables rule removed: unblock %s", ip_address)
             return True
 
+        # ── Linux: remove nftables rules ──
+        if Path("/sbin/nft").exists() or Path("/usr/sbin/nft").exists():
+            # nftables requires handle-based deletion: list rules, find matching, delete by handle
+            try:
+                list_result = await asyncio.to_thread(
+                    subprocess.run,
+                    ["nft", "-a", "list", "ruleset"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if list_result.returncode == 0:
+                    for line in list_result.stdout.split("\n"):
+                        if ip_address in line and "drop" in line:
+                            # Extract handle from comment like "# handle 42"
+                            import re
+                            handle_match = re.search(r"handle\s+(\d+)", line)
+                            if handle_match:
+                                handle = handle_match.group(1)
+                                del_result = await asyncio.to_thread(
+                                    subprocess.run,
+                                    ["nft", "delete", "rule", "inet", "filter", "INPUT", "handle", handle],
+                                    capture_output=True, text=True, timeout=10,
+                                )
+                                if del_result.returncode == 0:
+                                    log.info("nftables rule handle %s removed: unblock %s", handle, ip_address)
+                                    return True
+                                log.warning("nftables delete handle %s failed for %s: %s", handle, ip_address, del_result.stderr.strip())
+                log.info("nftables: no matching drop rule found for %s", ip_address)
+                return True
+            except Exception as e:
+                log.warning("nftables unblock error for %s: %s", ip_address, e)
+                return False
+
+        # ── BSD/macOS: remove ipfw rules ──
+        if Path("/sbin/ipfw").exists() or Path("/usr/sbin/ipfw").exists():
+            # ipfw uses rule numbers — find and delete the block rule
+            result = await asyncio.to_thread(
+                subprocess.run,
+                ["ipfw", "list"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                for line in result.stdout.strip().split("\n"):
+                    if ip_address in line and "deny" in line:
+                        rule_num = line.split()[0]
+                        await asyncio.to_thread(
+                            subprocess.run,
+                            ["ipfw", "delete", rule_num],
+                            capture_output=True, text=True, timeout=10,
+                        )
+                        log.info("ipfw rule %s removed: unblock %s", rule_num, ip_address)
+                        return True
+            log.info("ipfw: no matching deny rule found for %s", ip_address)
+            return True
+
+        log.debug("No firewall binary found — IP %s unblock skipped (DB-only)", ip_address)
         return False
     except Exception as e:
         log.warning("Firewall unblock error for %s: %s", ip_address, e)
