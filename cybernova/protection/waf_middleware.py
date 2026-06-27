@@ -24,6 +24,21 @@ SKIP_PREFIXES = frozenset({
     "/api/v1/auth/",   # Auth endpoints — browser Origin/Referer headers contain localhost URLs, causing SSRF false positives
     "/api/v1/soar/",   # SOAR actions — internal API calls for incident response
     "/api/v1/dashboard/response/action",  # Dashboard SOAR action execution
+    "/api/v1/agent/",  # Agent telemetry/heartbeat — agents send system data, not user input
+    "/api/v1/devices/",  # Device management — internal API, no user-supplied attack surface
+    "/api/v1/diagnostics/",  # Diagnostics endpoints
+    # Dashboard read-only paths (specific GET endpoints only — NOT the broad prefix)
+    "/api/v1/dashboard/summary",
+    "/api/v1/dashboard/alerts",
+    "/api/v1/dashboard/incidents",
+    "/api/v1/dashboard/logs",
+    "/api/v1/dashboard/threat-intel",
+    "/api/v1/dashboard/global-feed",
+    "/api/v1/dashboard/connections",
+    "/api/v1/dashboard/processes",
+    "/api/v1/dashboard/ai/",
+    "/api/v1/dashboard/rate-limits",
+    "/api/v1/dashboard/devices",
 })
 
 # Paths where we skip body inspection only (still check query params and headers)

@@ -45,7 +45,15 @@ async def resolve_tenant_from_api_key(
     authorization: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> str:
-    """Resolve tenant_id from API key or Bearer token. Returns 'default' for demo."""
+    """Resolve tenant_id from API key, Bearer JWT, or device token.
+
+    Strategies (in order):
+      1. API key lookup
+      2. Standard JWT decode (validates signature + expiry)
+      3. Expired JWT — extract tenant_id from unverified claims
+      4. Device token — SHA256 hash lookup against Device table
+      5. Fallback to first active tenant (legacy/no-auth)
+    """
     if api_key:
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         result = await db.execute(
@@ -58,19 +66,52 @@ async def resolve_tenant_from_api_key(
             return key_obj.tenant_id
 
     if authorization and authorization.startswith("Bearer "):
-        from cybernova.security.encryption.jwt_handler import decode_access_token
-        from jose import JWTError
         token = authorization.split(" ", 1)[1]
+
+        # Strategy 2: Standard JWT decode (validates signature + expiry)
         try:
+            from cybernova.security.encryption.jwt_handler import decode_access_token
+            from jose import JWTError
             payload = decode_access_token(token)
             if payload.get("tenant_id"):
                 return payload["tenant_id"]
         except JWTError:
             pass
+        except Exception as exc:
+            log.warning("JWT decode failed: %s", exc)
 
+        # Strategy 3: JWT might be expired — extract tenant_id from unverified claims
+        try:
+            from jose import jwt as jose_jwt
+            unverified = jose_jwt.get_unverified_claims(token)
+            tid = unverified.get("tenant_id")
+            if tid:
+                log.info("Ingest: using tenant_id %s from expired JWT claims", tid)
+                return tid
+        except Exception as exc:
+            log.warning("Failed to extract claims from expired JWT: %s", exc)
+
+        # Strategy 4: Device token (SHA256 hash match)
+        try:
+            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            result = await db.execute(
+                select(Device).where(
+                    Device.device_token_hash == token_hash,
+                    Device.is_active,
+                ).limit(1)
+            )
+            device_match = result.scalar_one_or_none()
+            if device_match:
+                log.info("Ingest: authenticated via device token for tenant %s", device_match.tenant_id)
+                return device_match.tenant_id
+        except Exception as exc:
+            log.warning("Device token lookup failed: %s", exc)
+
+    # Strategy 5: Fallback to first active tenant (legacy/no-auth)
     result = await db.execute(select(Tenant).where(Tenant.is_active).limit(1))
     tenant = result.scalar_one_or_none()
     if tenant:
+        log.warning("Ingest: no valid auth — falling back to tenant %s", tenant.id)
         return tenant.id
 
     return "default"
@@ -131,15 +172,32 @@ async def ingest_agent_event(
         "protocol": payload.protocol,
     }
 
-    await unified_pipeline.ingest_batch(
-        events=[event_data],
-        tenant_id=tenant_id,
-        source="agent",
-        source_type=log_type,
-    )
+    if not unified_pipeline._running:
+        log.warning(
+            "Agent event: pipeline NOT RUNNING — event '%s' from %s will be DROPPED. "
+            "Check GET /api/v1/pipeline/status",
+            payload.event_type, hostname,
+        )
+
+    accepted = 0
+    try:
+        accepted = await unified_pipeline.ingest_batch(
+            events=[event_data],
+            tenant_id=tenant_id,
+            source="agent",
+            source_type=log_type,
+        )
+    except Exception as exc:
+        log.error("Agent event pipeline ingest failed for %s: %s", hostname, exc)
 
     if device:
         device.last_heartbeat = datetime.now(timezone.utc)
     await db.commit()
 
-    return {"accepted": True, "device_id": device.id if device else None, "tenant_id": tenant_id}
+    pipeline_ok = unified_pipeline._running
+    return {
+        "accepted": accepted > 0,
+        "device_id": device.id if device else None,
+        "tenant_id": tenant_id,
+        "pipeline": "running" if pipeline_ok else "stopped",
+    }

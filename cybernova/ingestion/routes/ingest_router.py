@@ -76,7 +76,7 @@ async def ingest_from_agent(
     source_type = body.get("source_type", "agent")
     
     if not events:
-        return {"accepted": 0, "event_ids": []}
+        return {"accepted": 0}
     
     count = await unified_pipeline.ingest_batch(
         events=events,
@@ -85,8 +85,13 @@ async def ingest_from_agent(
         source_type=source_type,
     )
     
-    log.info("Host agent ingested %d events for tenant %s", count, tenant_id)
-    return {"accepted": count}
+    if count == 0:
+        log.error("Host agent: 0/%d events accepted for tenant %s — pipeline may be stopped!", len(events), tenant_id)
+        from fastapi import HTTPException
+        raise HTTPException(status_code=502, detail=f"0/{len(events)} events accepted — pipeline may not be running. Check GET /api/v1/pipeline/status")
+    
+    log.info("Host agent ingested %d/%d events for tenant %s", count, len(events), tenant_id)
+    return {"accepted": count, "total": len(events)}
 
 
 @router.post("/webhook", summary="Webhook receiver")

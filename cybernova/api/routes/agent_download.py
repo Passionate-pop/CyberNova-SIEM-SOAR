@@ -176,27 +176,27 @@ async def _serve_binary(filename: str) -> FileResponse:
     )
 
 
-WINDOWS_AGENT = r"""
-# ═════════════════════════════════════════════════════
-#  CyberNova Host Defender — Windows
-#  Install:  $env:CYBERNOVA_API_URL="http://SERVER:8000"; irm http://SERVER:8000/agent.ps1 | iex
-#  Manual:   powershell -ExecutionPolicy Bypass -File "C:\\Program Files\\CyberNova\\hostdefender.ps1"
-# ═════════════════════════════════════════════════════
-$ErrorActionPreference = "SilentlyContinue"
+WINDOWS_AGENT = r"""# CyberNova Host Defender - Windows
+# Install:  $env:CYBERNOVA_API_URL="http://SERVER:8888"; irm http://SERVER:8888/agent.ps1 | iex
+# Manual:   powershell -ExecutionPolicy Bypass -File "C:\Program Files\CyberNova\hostdefender.ps1"
 
-$API_URL = if ($env:CYBERNOVA_API_URL) { $env:CYBERNOVA_API_URL } else { "http://localhost:8000" }
-$INSTALL_DIR = "$env:ProgramFiles\\CyberNova"
-$CONFIG_FILE = "$INSTALL_DIR\\agent_config.json"
-$AGENT_FILE = "$INSTALL_DIR\\hostdefender.ps1"
+$API_URL = if ($env:CYBERNOVA_API_URL) { $env:CYBERNOVA_API_URL } else { "http://localhost:8888" }
+$INSTALL_DIR = "$env:ProgramFiles\CyberNova"
+$CONFIG_FILE = "$INSTALL_DIR\agent_config.json"
+$AGENT_FILE = "$INSTALL_DIR\hostdefender.ps1"
+$LOG_DIR = "$INSTALL_DIR\logs"
+$LOG_FILE = "$LOG_DIR\agent.log"
 
-# ═════════════════════════════════════════════════════
-#  INSTALL MODE — runs when piped via iex ($PSScriptRoot is empty)
-# ═════════════════════════════════════════════════════
+# ==================================================
+#  INSTALL MODE -- runs when piped via iex ($PSScriptRoot is empty)
+# ==================================================
 if ([string]::IsNullOrEmpty($PSScriptRoot)) {
 
-    Write-Host "`n  ==========================================" -ForegroundColor Cyan
-    Write-Host "  CyberNova — Security Agent Installer" -ForegroundColor Cyan
-    Write-Host "  ==========================================`n" -ForegroundColor Cyan
+    $ErrorActionPreference = "Stop"
+
+    Write-Host "`n  =========================================="
+    Write-Host "  CyberNova - Security Agent Installer"
+    Write-Host "  ==========================================`n"
 
     $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
         [Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -204,94 +204,159 @@ if ([string]::IsNullOrEmpty($PSScriptRoot)) {
         Write-Host "  [ERROR] This needs Administrator access!" -ForegroundColor Red
         Write-Host "  Right-click PowerShell -> Run as administrator`n" -ForegroundColor Yellow
         pause
-        exit 1
+        return
     }
 
-    Write-Host "  [1/6] Creating install directory..." -ForegroundColor White
+    # Step 1: Create directory
+    Write-Host "  [1/5] Creating install directory..." -ForegroundColor White
     New-Item -ItemType Directory -Path $INSTALL_DIR -Force | Out-Null
-    New-Item -ItemType Directory -Path "$INSTALL_DIR\\logs" -Force | Out-Null
+    New-Item -ItemType Directory -Path $LOG_DIR -Force | Out-Null
     Write-Host "        OK  $INSTALL_DIR" -ForegroundColor Green
 
-    Write-Host "  [2/6] Saving agent..." -ForegroundColor White
+    # Step 2: Download agent
+    Write-Host "  [2/5] Saving agent..." -ForegroundColor White
+    $dlHeaders = @{}
+    if ($env:CYBERNOVA_API_KEY) { $dlHeaders["X-API-Key"] = $env:CYBERNOVA_API_KEY }
+    Invoke-WebRequest -Uri "$API_URL/agent.ps1" -OutFile $AGENT_FILE -Headers $dlHeaders -TimeoutSec 30 -UseBasicParsing
+    if (-not (Test-Path $AGENT_FILE)) {
+        Write-Host "        FAILED: agent file not saved" -ForegroundColor Red
+        return
+    }
+    Write-Host "        OK  $AGENT_FILE" -ForegroundColor Green
+
+    # Step 3: Save config
+    Write-Host "  [3/5] Saving configuration..." -ForegroundColor White
+    $cfg = @{ api_url = $API_URL; installed_at = (Get-Date).ToString("o") }
+    if ($env:CYBERNOVA_TOKEN) { $cfg["token"] = $env:CYBERNOVA_TOKEN }
+    $cfg | ConvertTo-Json | Set-Content -Path $CONFIG_FILE -Force
+    Write-Host "        OK" -ForegroundColor Green
+
+    # Step 4: Desktop shortcut
+    Write-Host "  [4/5] Creating desktop shortcut..." -ForegroundColor White
     try {
-        $dlHeaders = @{}
-        if ($env:CYBERNOVA_API_KEY) { $dlHeaders["X-API-Key"] = $env:CYBERNOVA_API_KEY }
-        Invoke-WebRequest -Uri "$API_URL/agent.ps1" -OutFile $AGENT_FILE -Headers $dlHeaders -TimeoutSec 30 -UseBasicParsing
+        $shell = New-Object -ComObject WScript.Shell
+        $lnk = $shell.CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\CyberNova Agent.lnk")
+        $lnk.TargetPath = "powershell.exe"
+        $lnk.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`""
+        $lnk.Description = "CyberNova Security Agent"
+        $lnk.IconLocation = "shell32.dll,47"
+        $lnk.Save()
         Write-Host "        OK" -ForegroundColor Green
     } catch {
-        Write-Host "        Download failed, saving embedded agent..." -ForegroundColor Yellow
-        $content = @"
-`$ErrorActionPreference = "SilentlyContinue"
-`$API_URL = "$API_URL"
-`$INSTALL_DIR = "$INSTALL_DIR"
-`$CONFIG_FILE = "$CONFIG_FILE"
-`$AGENT_FILE = "$AGENT_FILE"
-if ((Get-Item `$AGENT_FILE -ErrorAction SilentlyContinue).Length -lt 1000) {
-    try {
-        `$h = @{}
-        if (`$env:CYBERNOVA_API_KEY) { `$h["X-API-Key"] = `$env:CYBERNOVA_API_KEY }
-        Invoke-WebRequest -Uri "`$API_URL/agent.ps1" -OutFile `$AGENT_FILE -Headers `$h -TimeoutSec 30 -UseBasicParsing
-    } catch {}
-}
-if (Test-Path `$AGENT_FILE) { . `$AGENT_FILE }
-"@
-        Set-Content -Path $AGENT_FILE -Value $content -Force
-        Write-Host "        OK (launcher saved)" -ForegroundColor Green
+        Write-Host "        Warning: shortcut failed (non-critical)" -ForegroundColor Yellow
     }
 
-    Write-Host "  [3/6] Saving configuration..." -ForegroundColor White
-    @{ api_url = $API_URL; installed_at = (Get-Date).ToString("o") } | ConvertTo-Json | Set-Content -Path $CONFIG_FILE -Force
-    Write-Host "        OK" -ForegroundColor Green
+    # Connectivity test
+    Write-Host "`n  Testing connectivity..." -ForegroundColor White
+    try {
+        $r = Invoke-RestMethod -Uri "$API_URL/health" -TimeoutSec 10
+        if ($r.status -eq "healthy") {
+            Write-Host "        Backend: healthy" -ForegroundColor Green
+        } else {
+            Write-Host "        Backend: $($r.status)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "        WARNING: not reachable at $API_URL" -ForegroundColor Yellow
+    }
 
-    Write-Host "  [4/6] Creating desktop shortcut..." -ForegroundColor White
-    $shell = New-Object -ComObject WScript.Shell
-    $lnk = $shell.CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\\CyberNova Agent.lnk")
-    $lnk.TargetPath = "powershell.exe"
-    $lnk.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`""
-    $lnk.Description = "CyberNova Security Agent"
-    $lnk.IconLocation = "shell32.dll,47"
-    $lnk.Save()
-    Write-Host "        OK" -ForegroundColor Green
+    # Telemetry test — run BEFORE starting the scheduled task so device_token
+    # is saved to config before the background agent starts.
+    Write-Host "  Testing telemetry..." -ForegroundColor White
+    try {
+        $body = @{
+            system = @{ hostname = $env:COMPUTERNAME; os_type = "windows"; agent_version = "2.0.0"; cpu_usage = 0; memory_usage = 0 }
+            heartbeat_interval = 5
+            sequence_number = 0
+            timestamp = (Get-Date).ToString("o")
+        } | ConvertTo-Json -Depth 5 -Compress
+        $h = @{ "Content-Type" = "application/json" }
+        if ($env:CYBERNOVA_TOKEN) { $h["Authorization"] = "Bearer " + $env:CYBERNOVA_TOKEN }
+        $resp = Invoke-RestMethod -Uri "$API_URL/api/v1/agent/telemetry" -Method POST -Body $body -Headers $h -TimeoutSec 10
+        Write-Host "        OK - device_id=$($resp.device_id) registered=$($resp.device_registered)" -ForegroundColor Green
+        if ($resp.device_token) {
+            Write-Host "        Saving device token to config..." -ForegroundColor Green
+            try {
+                $saved = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
+                $saved.token = $resp.device_token
+                $saved | ConvertTo-Json -Depth 5 | Set-Content -Path $CONFIG_FILE -Force
+                Write-Host "        Device token saved" -ForegroundColor Green
+            } catch {}
+        }
+    } catch {
+        Write-Host "        WARNING: telemetry failed" -ForegroundColor Yellow
+    }
 
-    Write-Host "  [5/6] Registering auto-start service..." -ForegroundColor White
+    # Step 5: Register service — STARTED AFTER config has the device_token
+    Write-Host "  [5/5] Registering auto-start service..." -ForegroundColor White
     $taskName = "CyberNova-HostDefender"
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-        -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`"" `
-        -WorkingDirectory $INSTALL_DIR
-    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
-        -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
-        -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
-        -StartWhenAvailable -MultipleInstances IgnoreNew
-    Register-ScheduledTask -TaskName $taskName -Action $action `
-        -Trigger @(
-            New-ScheduledTaskTrigger -AtStartup
-            New-ScheduledTaskTrigger -AtLogOn
-        ) `
-        -Principal $principal -Settings $settings `
-        -Description "CyberNova Host Defender - 24/7 security monitoring" -Force
-    Write-Host "        OK" -ForegroundColor Green
+    $taskOk = $false
+    try {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" `
+            -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`"" `
+            -WorkingDirectory $INSTALL_DIR
+        $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
+            -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
+            -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
+            -StartWhenAvailable -MultipleInstances IgnoreNew
+        Register-ScheduledTask -TaskName $taskName -Action $action `
+            -Trigger @(
+                New-ScheduledTaskTrigger -AtStartup
+                New-ScheduledTaskTrigger -AtLogOn
+            ) `
+            -Principal $principal -Settings $settings `
+            -Description "CyberNova Host Defender - 24/7 security monitoring" -Force
+        Start-Sleep -Seconds 1
+        Start-ScheduledTask -TaskName $taskName
+        Start-Sleep -Seconds 3
+        $info = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($info -and $info.State -eq "Running") {
+            $taskOk = $true
+            Write-Host "        OK (scheduled task running)" -ForegroundColor Green
+        } else {
+            Write-Host "        Warning: task state=$($info.State)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "        Warning: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
 
-    Write-Host "  [6/6] Starting agent..." -ForegroundColor White
-    Start-ScheduledTask -TaskName $taskName
-    Write-Host "        OK`n" -ForegroundColor Green
+    # Fallback: start agent directly if scheduled task failed
+    if (-not $taskOk) {
+        Write-Host "        Starting agent in background..." -ForegroundColor Yellow
+        try {
+            $proc = Start-Process -FilePath "powershell.exe" `
+                -ArgumentList "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`"" `
+                -WindowStyle Hidden -PassThru
+            Start-Sleep -Seconds 3
+            $proc.Refresh()
+            if ($proc.HasExited) {
+                Write-Host "        Warning: agent exited. Run manually: powershell -ExecutionPolicy Bypass -File `"$AGENT_FILE`"" -ForegroundColor Yellow
+            } else {
+                Write-Host "        OK (background PID=$($proc.Id))" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "        Warning: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
 
-    Write-Host "  ============================================" -ForegroundColor Green
-    Write-Host "  CyberNova installed and running!" -ForegroundColor Green
-    Write-Host "  ============================================" -ForegroundColor Green
+    Write-Host "`n  ============================================"
+    Write-Host "  CyberNova Agent installed!"
+    Write-Host "  ============================================"
     Write-Host ""
-    Write-Host "  Installed:  $INSTALL_DIR" -ForegroundColor White
-    Write-Host "  Desktop:    CyberNova Agent.lnk" -ForegroundColor White
-    Write-Host "  Auto-start: Yes (runs 24/7, no terminal needed)" -ForegroundColor White
-    Write-Host "  API:        $API_URL" -ForegroundColor Cyan
+    Write-Host "  Installed:  $INSTALL_DIR"
+    Write-Host "  API:        $API_URL"
     Write-Host ""
+    return
+
 } else {
 
-# ═════════════════════════════════════════════════════
-#  MONITOR MODE — background service
-# ═════════════════════════════════════════════════════
+# ==================================================
+#  MONITOR MODE -- background service
+# ==================================================
+$ErrorActionPreference = "SilentlyContinue"
 
+# Read config
 if (Test-Path $CONFIG_FILE) {
     try {
         $cfg = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
@@ -299,237 +364,195 @@ if (Test-Path $CONFIG_FILE) {
     } catch {}
 }
 
-$API_KEY = $env:CYBERNOVA_API_KEY
-$headers = @{ "Content-Type" = "application/json" }
-if ($API_KEY) { $headers["X-API-Key"] = $API_KEY }
-
-Write-Host "CyberNova Host Defender starting..." -ForegroundColor Cyan
-
-$info = @{
-    hostname = $env:COMPUTERNAME
-    os = (Get-CimInstance Win32_OperatingSystem).Caption
-    os_ver = (Get-CimInstance Win32_OperatingSystem).Version
-    ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" } | Select-Object -First 1).IPAddress
-    ips = @((Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" }).IPAddress)
-    macs = @((Get-NetAdapter | Where-Object { $_.Status -eq "Up" }).MacAddress)
-    kernel = (Get-CimInstance Win32_OperatingSystem).BuildNumber
+# Read token from env or config
+$TOKEN = $env:CYBERNOVA_TOKEN
+if (-not $TOKEN -and (Test-Path $CONFIG_FILE)) {
+    try {
+        $cfg = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
+        if ($cfg.token) { $TOKEN = $cfg.token }
+    } catch {}
 }
 
+$headers = @{ "Content-Type" = "application/json" }
+if ($TOKEN) { $headers["Authorization"] = "Bearer " + $TOKEN }
+
+$INTERVAL = 5
+
+# Helper: log to file
+function Write-Log([string]$msg) {
+    try {
+        $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        Add-Content -Path $LOG_FILE -Value "[$ts] $msg" -ErrorAction SilentlyContinue
+    } catch {}
+}
+
+Write-Log "Starting - host=$env:COMPUTERNAME api=$API_URL"
+
+# Gather system info (each wrapped to prevent crash)
+$hn = try { $env:COMPUTERNAME } catch { "unknown" }
+$osCap = try { (Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue).Caption } catch { "Windows" }
+$osVer = try { (Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue).Version } catch { "" }
+$myIp = try { (Get-NetIPAddress -AddressFamily IPv4 -EA SilentlyContinue | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" } | Select-Object -First 1).IPAddress } catch { "127.0.0.1" }
+$myIps = try { @(Get-NetIPAddress -AddressFamily IPv4 -EA SilentlyContinue | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" } | ForEach-Object { $_.IPAddress }) } catch { @() }
+$myMacs = try { @(Get-NetAdapter -EA SilentlyContinue | Where-Object { $_.Status -eq "Up" } | ForEach-Object { $_.MacAddress }) } catch { @() }
+$buildNum = try { (Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue).BuildNumber } catch { "" }
+
+$hostInfo = @{
+    hostname = $hn
+    os_type = "windows"
+    os_version = $osVer
+    ip_addresses = $myIps
+    mac_addresses = $myMacs
+    kernel_version = $buildNum
+    agent_version = "2.0.0"
+}
+
+$script:seq = 0
 $script:knownUsb = @{}
 $script:fimBaseline = @{}
 $script:regBaseline = @{}
-$script:seq = 0
-$script:procCache = @{}
+$script:seenFiles = @{}
 
-function Send-BatchTelemetry {
-    param([hashtable]$extra = @{})
+function Send-Telemetry([hashtable]$extra) {
     $script:seq++
+    $cpu = try { (Get-CimInstance Win32_Processor -EA SilentlyContinue | Measure-Object -Property LoadPercentage -Average).Average } catch { 0 }
+    $mem = try { $os = Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue; [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1) } catch { 0 }
+    $hostInfo["cpu_usage"] = $cpu
+    $hostInfo["memory_usage"] = $mem
     $body = @{
-        system = @{
-            hostname = $info.hostname
-            os_type = "windows"
-            os_version = $info.os_ver
-            ip_addresses = $info.ips
-            mac_addresses = $info.macs
-            kernel_version = $info.kernel
-            cpu_usage = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
-            memory_usage = (Get-CimInstance Win32_OperatingSystem | ForEach-Object { [math]::Round(($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize * 100, 1) })
-            agent_version = "2.0.0"
-        }
+        system = $hostInfo
         heartbeat_interval = $INTERVAL
         sequence_number = $script:seq
         timestamp = (Get-Date).ToString("o")
     }
-    if ($extra.Count -gt 0) { $body += $extra }
+    if ($extra -and $extra.Count -gt 0) { $body += $extra }
     try {
         $json = $body | ConvertTo-Json -Depth 5 -Compress
-        Invoke-RestMethod -Uri "$API_URL/api/v1/agent/telemetry" -Method POST -Body $json -Headers $headers -TimeoutSec 10
-    } catch {}
+        $resp = Invoke-RestMethod -Uri "$API_URL/api/v1/agent/telemetry" -Method POST -Body $json -Headers $headers -TimeoutSec 10
+        Write-Log "Telemetry OK seq=$($script:seq) device=$($resp.device_id)"
+        if ($resp.device_token) {
+            $TOKEN = $resp.device_token
+            $headers["Authorization"] = "Bearer " + $TOKEN
+            try {
+                $c = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
+                $c.token = $resp.device_token
+                $c | ConvertTo-Json | Set-Content -Path $CONFIG_FILE -Force
+                Write-Log "Device token upgraded"
+            } catch {}
+        }
+    } catch {
+        Write-Log "Telemetry FAILED: $($_.Exception.Message)"
+    }
 }
 
-function Send-Event($type, $msg, $severity, $extra) {
+function Send-SecurityEvent([string]$type, [string]$msg, [string]$sev, [hashtable]$extra) {
     $body = @{
         source = "agent"
-        hostname = $info.hostname
+        hostname = $hn
         event_type = $type
         message = $msg
         timestamp = (Get-Date).ToString("o")
-        ip_address = $info.ip
+        ip_address = $myIp
         os_type = "windows"
-        severity = $severity
+        severity = $sev
     }
     if ($extra) { $body += $extra }
     try {
         $json = $body | ConvertTo-Json -Depth 3 -Compress
         Invoke-RestMethod -Uri "$API_URL/api/v1/ingest/event" -Method POST -Body $json -Headers $headers -TimeoutSec 5
-    } catch {}
-}
-
-function Get-ProcessTelemetry {
-    $procs = @()
-    try {
-        Get-Process -ErrorAction SilentlyContinue | Select-Object -First 200 | ForEach-Object {
-            $procs += @{
-                pid = $_.Id
-                name = $_.ProcessName
-                command_line = ""
-                user = "unknown"
-                cpu_percent = 0.0
-                memory_mb = [math]::Round($_.WorkingSet64 / 1MB, 1)
-                path = $_.Path
-                start_time = if ($_.StartTime) { $_.StartTime.ToString("o") } else { "" }
-                event_type = "process_running"
-            }
-        }
-    } catch {}
-    return $procs
-}
-
-function Get-NetworkTelemetry {
-    $conns = @()
-    try {
-        Get-NetTCPConnection -ErrorAction SilentlyContinue | Select-Object -First 200 | ForEach-Object {
-            $conns += @{
-                local_ip = $_.LocalAddress
-                local_port = $_.LocalPort
-                remote_ip = $_.RemoteAddress
-                remote_port = $_.RemotePort
-                state = $_.State
-                protocol = "tcp"
-            }
-        }
-    } catch {}
-    return $conns
-}
-
-function Get-UsbDevices {
-    $devices = @{}
-    try {
-        $usb = Get-CimInstance -Class Win32_USBControllerDevice -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.Dependent -replace '.*="(.*?)".*', '$1' }
-        foreach ($u in $usb) { $devices[$u] = $true }
-    } catch {}
-    try {
-        Get-CimInstance -Class Win32_DiskDrive | Where-Object { $_.InterfaceType -eq "USB" } | ForEach-Object {
-            $devices["DISK_$($_.DeviceID)"] = $true
-        }
-    } catch {}
-    return $devices
+        Write-Log "Event sent: $type"
+    } catch {
+        Write-Log "Event FAILED: $type - $($_.Exception.Message)"
+    }
 }
 
 function Check-Usb {
-    $current = Get-UsbDevices
+    $current = @{}
+    try {
+        Get-CimInstance -Class Win32_USBControllerDevice -EA SilentlyContinue | ForEach-Object {
+            $dep = $_.Dependent -replace '.*="(.*?)".*', '$1'
+            $current[$dep] = $true
+        }
+        Get-CimInstance -Class Win32_DiskDrive -EA SilentlyContinue | Where-Object { $_.InterfaceType -eq "USB" } | ForEach-Object {
+            $current["DISK_$($_.DeviceID)"] = $true
+        }
+    } catch {}
     if ($script:knownUsb.Count -eq 0) { $script:knownUsb = $current; return }
-    foreach ($key in $current.Keys) {
-        if (-not $script:knownUsb.ContainsKey($key)) {
-            Send-Event "usb_connected" "USB device connected: $key" "low" @{device=$key; action="connected"}
+    foreach ($k in $current.Keys) {
+        if (-not $script:knownUsb.ContainsKey($k)) {
+            Send-SecurityEvent "usb_connected" "USB connected: $k" "low" @{ device = $k }
         }
     }
-    foreach ($key in $script:knownUsb.Keys) {
-        if (-not $current.ContainsKey($key)) {
-            Send-Event "usb_removed" "USB device removed: $key" "info" @{device=$key; action="removed"}
+    foreach ($k in $script:knownUsb.Keys) {
+        if (-not $current.ContainsKey($k)) {
+            Send-SecurityEvent "usb_removed" "USB removed: $k" "info" @{ device = $k }
         }
     }
     $script:knownUsb = $current
 }
 
-$regTargets = @(
-    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run",
-    "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
-    "HKLM:\SYSTEM\CurrentControlSet\Services",
-    "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
-)
-
-function Get-RegistrySnapshot {
-    $snap = @{}
-    foreach ($path in $regTargets) {
+function Check-Registry {
+    $regPaths = @(
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run",
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+    )
+    $current = @{}
+    foreach ($p in $regPaths) {
         try {
-            $items = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
+            $items = Get-ItemProperty -Path $p -EA SilentlyContinue
             if ($items) {
-                $data = $items.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }
-                $snap[$path] = $data -join "|"
+                $current[$p] = ($items.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join "|"
             }
         } catch {}
     }
-    return $snap
-}
-
-function Check-Registry {
-    $current = Get-RegistrySnapshot
     if ($script:regBaseline.Count -eq 0) { $script:regBaseline = $current; return }
-    foreach ($key in $current.Keys) {
-        $prev = $script:regBaseline[$key]
-        $now = $current[$key]
-        if ($prev -and $now -and $prev -ne $now) {
-            Send-Event "registry_changed" "Registry modified: $key" "high" @{registry_key=$key}
+    foreach ($k in $current.Keys) {
+        if ($script:regBaseline[$k] -and $script:regBaseline[$k] -ne $current[$k]) {
+            Send-SecurityEvent "registry_changed" "Registry modified: $k" "high" @{ registry_key = $k }
         }
     }
     $script:regBaseline = $current
 }
 
-$keylogSignatures = @("keylog", "hook", "wh_keyboard", "getasynckeystate", "setwindowshookex")
-
-function Check-Keyloggers {
-    $procs = Get-Process -ErrorAction SilentlyContinue
-    foreach ($p in $procs) {
-        $name = $p.ProcessName.ToLower()
-        foreach ($sig in $keylogSignatures) {
-            if ($name -match $sig) {
-                Send-Event "keylog_detected" "Possible keylogger: $name (PID $($p.Id))" "critical" @{pid=$p.Id; process=$name; signature=$sig}
-                break
-            }
-        }
-    }
-    Add-Type @"
-        using System;
-        using System.Runtime.InteropServices;
-        using System.Text;
-        public class WinAPI {
-            [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hWnd, int uCmd);
-            [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
-            [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
-        }
-"@ -ErrorAction SilentlyContinue
-}
-
-$fimTargets = @(
-    "$env:WINDIR\System32\drivers\etc\hosts",
-    "$env:WINDIR\System32\config\SAM",
-    "$env:WINDIR\System32\config\SECURITY"
-)
-
-function Get-FileHashSha256($path) {
-    try {
-        $stream = [System.IO.File]::OpenRead($path)
-        $sha = [System.Security.Cryptography.SHA256]::Create()
-        $hash = $sha.ComputeHash($stream)
-        $stream.Close()
-        return [BitConverter]::ToString($hash) -replace "-", ""
-    } catch { return "" }
-}
-
 function Check-Fim {
+    $targets = @(
+        "$env:WINDIR\System32\drivers\etc\hosts",
+        "$env:WINDIR\System32\config\SAM",
+        "$env:WINDIR\System32\config\SECURITY"
+    )
     if ($script:fimBaseline.Count -eq 0) {
-        foreach ($f in $fimTargets) {
-            if (Test-Path $f) { $script:fimBaseline[$f] = Get-FileHashSha256 $f }
+        foreach ($f in $targets) {
+            if (Test-Path $f) {
+                try {
+                    $h = [System.IO.File]::OpenRead($f)
+                    $sha = [System.Security.Cryptography.SHA256]::Create()
+                    $hash = [BitConverter]::ToString($sha.ComputeHash($h)).Replace("-", "")
+                    $h.Close()
+                    $script:fimBaseline[$f] = $hash
+                } catch {}
+            }
         }
         return
     }
-    foreach ($f in $fimTargets) {
+    foreach ($f in $targets) {
         if (-not (Test-Path $f)) { continue }
-        $current = Get-FileHashSha256 $f
-        $prev = $script:fimBaseline[$f]
-        if ($prev -and $current -ne $prev) {
-            Send-Event "file_changed" "File integrity violation: $f — hash changed" "high" @{file=$f}
-            $script:fimBaseline[$f] = $current
-        }
+        try {
+            $h = [System.IO.File]::OpenRead($f)
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            $cur = [BitConverter]::ToString($sha.ComputeHash($h)).Replace("-", "")
+            $h.Close()
+            if ($script:fimBaseline[$f] -and $script:fimBaseline[$f] -ne $cur) {
+                Send-SecurityEvent "file_changed" "FIM: $f hash changed" "high" @{ file = $f }
+                $script:fimBaseline[$f] = $cur
+            }
+        } catch {}
     }
 }
 
-Write-Host "Monitoring $($info.hostname) ($($info.ip))" -ForegroundColor Green
-Write-Host "USB / Registry / Keylogger / File Integrity / Process / Network" -ForegroundColor Cyan
+Write-Log "Monitoring $hn ($myIp)"
+Write-Host "CyberNova monitoring $hn ($myIp)" -ForegroundColor Green
 
 $cycle = 0
 while ($true) {
@@ -538,20 +561,34 @@ while ($true) {
     Check-Registry
     $extra = @{}
     if ($cycle % 2 -eq 0) {
-        Check-Keyloggers
         Check-Fim
-        $extra["processes"] = Get-ProcessTelemetry
-        $extra["connections"] = Get-NetworkTelemetry
+        # Process list
+        $procs = @()
+        try {
+            Get-Process -EA SilentlyContinue | Select-Object -First 100 | ForEach-Object {
+                $procs += @{ pid = $_.Id; name = $_.ProcessName; memory_mb = [math]::Round($_.WorkingSet64 / 1MB, 1); event_type = "process_running" }
+            }
+        } catch {}
+        $extra["processes"] = $procs
+        # Network connections
+        $conns = @()
+        try {
+            Get-NetTCPConnection -EA SilentlyContinue | Select-Object -First 100 | ForEach-Object {
+                $conns += @{ local_ip = $_.LocalAddress; local_port = $_.LocalPort; remote_ip = $_.RemoteAddress; remote_port = $_.RemotePort; protocol = "tcp" }
+            }
+        } catch {}
+        $extra["connections"] = $conns
     }
-    Send-BatchTelemetry $extra
+    Send-Telemetry $extra
     Start-Sleep -Seconds $INTERVAL
 }
+
 }
 """
 
 
-LINUX_AGENT = """#!/usr/bin/env python3
-# CyberNova Host Defender v2 — Linux
+LINUX_AGENT = '''#!/usr/bin/env python3
+# CyberNova Host Defender v2 -- Linux
 # Install:  CYBERNOVA_API_URL=http://SERVER:8000 curl -s http://SERVER:8000/agent.sh | python3
 # Manual:   python3 /opt/cybernova/cyberhost.py
 import hashlib, json, os, socket, sys, time, urllib.request, re, subprocess
@@ -571,9 +608,9 @@ AGENT_FILE = os.path.join(INSTALL_DIR, "cyberhost.py")
 def log(msg):
     print("[CyberNova] %s" % msg)
 
-# ═════════════════════════════════════════════════════
-#  INSTALL MODE — when piped via curl | python3
-# ═════════════════════════════════════════════════════
+# ==================================================
+#  INSTALL MODE -- when piped via curl | python3
+# ==================================================
 def _is_install_mode():
     try:
         f = globals().get("__file__", "")
@@ -584,7 +621,7 @@ def _is_install_mode():
 if _is_install_mode():
     print()
     print("  ==========================================")
-    print("  CyberNova — Security Agent Installer")
+    print("  CyberNova -- Security Agent Installer")
     print("  ==========================================")
     print()
 
@@ -637,6 +674,9 @@ if _is_install_mode():
     # 3. Save configuration
     print("  [3/6] Saving configuration...")
     config = {"api_url": API_URL, "installed_at": datetime.now(timezone.utc).isoformat()}
+    _token = os.environ.get("CYBERNOVA_TOKEN", "")
+    if _token:
+        config["token"] = _token
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
     print("        OK")
@@ -648,7 +688,7 @@ if _is_install_mode():
         desktop_dir = os.path.expanduser("~/.local/share/applications")
     desktop_file = os.path.join(desktop_dir, "cybernova-agent.desktop")
     try:
-        _desktop = \"\"\"[Desktop Entry]
+        _desktop = """[Desktop Entry]
 Name=CyberNova Agent
 Comment=CyberNova Security Agent
 Exec=xdg-open %s
@@ -656,7 +696,7 @@ Icon=security-high
 Terminal=false
 Type=Application
 Categories=Security;System;
-\"\"\" % API_URL
+""" % API_URL
         with open(desktop_file, "w") as f:
             f.write(_desktop)
         os.chmod(desktop_file, 0o755)
@@ -666,7 +706,7 @@ Categories=Security;System;
 
     # 5. Create systemd service
     print("  [5/6] Registering auto-start service...")
-    _svc = \"\"\"[Unit]
+    _svc = """[Unit]
 Description=CyberNova Host Defender
 After=network.target
 
@@ -677,10 +717,11 @@ Restart=always
 RestartSec=10
 Environment=CYBERNOVA_API_URL=%s
 Environment=CYBERNOVA_API_KEY=%s
+Environment=CYBERNOVA_TOKEN=%s
 
 [Install]
 WantedBy=multi-user.target
-\"\"\" % (sys.executable, AGENT_FILE, API_URL, API_KEY or "")
+""" % (sys.executable, AGENT_FILE, API_URL, API_KEY or "", os.environ.get("CYBERNOVA_TOKEN", ""))
     service_path = "/etc/systemd/system/cyberhost.service"
     try:
         with open(service_path, "w") as f:
@@ -688,7 +729,13 @@ WantedBy=multi-user.target
         subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
         subprocess.run(["systemctl", "enable", "cyberhost"], capture_output=True)
         subprocess.run(["systemctl", "start", "cyberhost"], capture_output=True)
-        print("        OK")
+        import time as _v_t
+        _v_t.sleep(2)
+        _v_check = subprocess.run(["systemctl", "is-active", "cyberhost"], capture_output=True, text=True)
+        if _v_check.stdout.strip() == "active":
+            print("        OK -- service running")
+        else:
+            print("        WARNING: service may not be running. Run: systemctl status cyberhost")
     except PermissionError:
         try:
             subprocess.run(["sudo", "tee", service_path], input=_svc.encode(), capture_output=True)
@@ -724,17 +771,21 @@ WantedBy=multi-user.target
     print()
     sys.exit(0)
 
-# ═════════════════════════════════════════════════════
-#  MONITOR MODE — background service
-# ═════════════════════════════════════════════════════
+# ==================================================
+#  MONITOR MODE -- background service
+# ==================================================
 
 # Read config if exists
+import math
 if os.path.isfile(CONFIG_FILE):
     try:
         with open(CONFIG_FILE) as f:
             cfg = json.load(f)
         if cfg.get("api_url"):
             API_URL = cfg["api_url"]
+        # Restore token from config file (persists across reboots)
+        if cfg.get("token") and not os.environ.get("CYBERNOVA_TOKEN", ""):
+            os.environ["CYBERNOVA_TOKEN"] = cfg["token"]
     except Exception:
         pass
 
@@ -750,8 +801,31 @@ def send_batch(extra=None):
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request("%s/api/v1/agent/telemetry" % API_URL, data=data,
             headers={"Content-Type": "application/json"})
-        if API_KEY: req.add_header("X-API-Key", API_KEY)
-        urllib.request.urlopen(req, timeout=10)
+        global CONFIG_FILE
+        TOKEN = os.environ.get("CYBERNOVA_TOKEN", "")
+        API_KEY = os.environ.get("CYBERNOVA_API_KEY", "")
+        if TOKEN: req.add_header("Authorization", "Bearer %s" % TOKEN)
+        elif API_KEY: req.add_header("X-API-Key", API_KEY)
+        resp = urllib.request.urlopen(req, timeout=10)
+        # Parse response for device_token -- upgrade from user JWT to device token
+        try:
+            body = json.loads(resp.read().decode("utf-8"))
+            dt = body.get("device_token", "")
+            if dt:
+                log("Received device_token -- upgrading auth")
+                # Save to config file and update env
+                cfg = {}
+                if os.path.isfile(CONFIG_FILE):
+                    with open(CONFIG_FILE) as f:
+                        cfg = json.load(f)
+                cfg["token"] = dt
+                cfg["api_url"] = API_URL
+                with open(CONFIG_FILE, "w") as f:
+                    json.dump(cfg, f, indent=2)
+                os.environ["CYBERNOVA_TOKEN"] = dt
+                log("Device token saved and activated")
+        except Exception:
+            pass
     except Exception as e:
         log("Batch send failed: %s" % e)
 
@@ -765,7 +839,10 @@ def send_event(event_type, message, severity="info", extra=None):
         data = json.dumps(event).encode("utf-8")
         req = urllib.request.Request("%s/api/v1/ingest/event" % API_URL, data=data,
             headers={"Content-Type": "application/json"})
-        if API_KEY: req.add_header("X-API-Key", API_KEY)
+        TOKEN = os.environ.get("CYBERNOVA_TOKEN", "")
+        API_KEY = os.environ.get("CYBERNOVA_API_KEY", "")
+        if TOKEN: req.add_header("Authorization", "Bearer %s" % TOKEN)
+        elif API_KEY: req.add_header("X-API-Key", API_KEY)
         urllib.request.urlopen(req, timeout=5)
     except Exception as e:
         log("Send failed: %s" % e)
@@ -883,12 +960,221 @@ def check_fim():
             send_event("file_changed", "FIM: %s hash changed" % t, "high", {"file": t})
             _fim_baseline[t] = cur
 
+# ==================================================
+#  FILE MONITORING -- Detect malicious files in user dirs
+# ==================================================
+DANGEROUS_EXTENSIONS = {
+    ".exe", ".dll", ".scr", ".bat", ".cmd", ".com", ".pif", ".msi", ".cpl",
+    ".ps1", ".psm1", ".psd1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh",
+    ".hta", ".py", ".rb", ".pl", ".sh", ".bash",
+    ".docm", ".dotm", ".xlsm", ".xltm", ".pptm", ".ppsm", ".potm",
+    ".lnk", ".url",
+    ".iso", ".vhd", ".vhdx", ".dmg",
+    ".zip", ".rar", ".7z", ".gz", ".tar",
+    ".jar", ".jnlp", ".gadget",
+    ".drv", ".sys", ".ko",
+    ".app", ".command",
+}
+MAGIC_BYTES = {
+    b"MZ": ".exe", b"\x7fELF": ".elf", b"PK\x03\x04": ".zip",
+    b"Rar!": ".rar", b"\x1f\x8b": ".gz", b"\xfd7z": ".7z",
+    b"BZh": ".bz2", b"%PDF": ".pdf",
+    b"\x89PNG": ".png", b"\xff\xd8\xff": ".jpg",
+    b"GIF8": ".gif", b"{\n": ".json", b"<html": ".html",
+}
+_seen_new_files = set()
+_file_scan_cycle = 0
+
+def _get_user_dirs():
+    dirs = []
+    home = Path.home()
+    for sub in ["Downloads", "Desktop", "Documents"]:
+        p = home / sub
+        if p.is_dir():
+            dirs.append(str(p))
+    for tmp in ["/tmp", "/var/tmp"]:
+        if Path(tmp).is_dir():
+            dirs.append(tmp)
+    return dirs
+
+def _detect_real_type(header):
+    if not header:
+        return "empty"
+    for magic, ftype in MAGIC_BYTES.items():
+        if header.startswith(magic):
+            return ftype
+    try:
+        header.decode("ascii")
+        return "text"
+    except Exception:
+        pass
+    return "binary"
+
+def _analyze_new_file(fpath):
+    try:
+        fpath = Path(fpath)
+        if not fpath.is_file():
+            return
+        fsize = fpath.stat().st_size
+        if fsize == 0 or fsize > 50 * 1024 * 1024:
+            return
+        ext = fpath.suffix.lower()
+        fname = fpath.name
+        parent = str(fpath.parent)
+        header = b""
+        try:
+            with open(fpath, "rb") as f:
+                header = f.read(16)
+        except Exception:
+            pass
+        real_type = _detect_real_type(header)
+        try:
+            with open(fpath, "rb") as f:
+                data = f.read(4096)
+            freq = {}
+            for b in data:
+                freq[b] = freq.get(b, 0) + 1
+            entropy = 0.0
+            for count in freq.values():
+                p = count / len(data)
+                if p > 0:
+                    entropy -= p * math.log2(p)
+            entropy = round(entropy, 4)
+        except Exception:
+            entropy = 0.0
+        findings = []
+        risk_score = 0
+        event_type = "file_scanned"
+        severity = "low"
+        # Dangerous extension
+        if ext in DANGEROUS_EXTENSIONS:
+            findings.append("dangerous_extension:%s" % ext)
+            risk_score = max(risk_score, 50)
+            severity = "high"
+            event_type = "suspicious_file"
+        # Extension mismatch (disguised file)
+        if ext and real_type and real_type not in ("unknown", "error", "binary", "text"):
+            if ext != real_type and real_type in DANGEROUS_EXTENSIONS:
+                findings.append("extension_mismatch:%s->%s" % (ext, real_type))
+                risk_score = max(risk_score, 90)
+                severity = "critical"
+                event_type = "suspicious_file"
+        # Double extension (invoice.pdf.exe)
+        if fname.count(".") >= 2:
+            last_ext = fname.rsplit(".", 1)[-1].lower()
+            if last_ext in DANGEROUS_EXTENSIONS:
+                findings.append("double_extension:%s" % fname)
+                risk_score = max(risk_score, 80)
+                severity = "critical"
+                event_type = "suspicious_file"
+        # High entropy (encoded/encrypted)
+        if fsize > 100 and entropy > 7.5:
+            findings.append("high_entropy:%.2f" % entropy)
+            risk_score = max(risk_score, 60)
+            if severity == "low": severity = "medium"
+            if event_type == "file_scanned": event_type = "suspicious_file"
+        # Executable in user-writable path
+        if ext in (".exe", ".dll", ".scr", ".msi", ".dmg", ".sh", ".py", ".elf"):
+            home_str = str(Path.home()).lower()
+            if home_str in parent.lower() or "/tmp" in parent.lower():
+                findings.append("executable_in_user_path:%s" % parent)
+                risk_score = max(risk_score, 70)
+                severity = "high"
+                event_type = "suspicious_file"
+        if not findings:
+            return
+        sha256 = hash_file(str(fpath))
+        send_event(
+            event_type,
+            "%s: %s -- %s" % (severity.upper(), fname, "; ".join(findings)),
+            severity,
+            {
+                "file_name": fname,
+                "file_path": str(fpath),
+                "file_size": fsize,
+                "sha256": sha256,
+                "entropy": entropy,
+                "detected_type": real_type,
+                "extension": ext,
+                "findings": findings,
+                "risk_score": risk_score,
+            },
+        )
+    except Exception as e:
+        log("File analysis error: %s" % e)
+
+def _seed_existing_files():
+    """Pre-seed existing files so we don't flood the backend on first scan."""
+    global _seen_new_files
+    count = 0
+    for d in _get_user_dirs():
+        try:
+            for root, dirs, files in os.walk(d):
+                depth = root.replace(d, "").count(os.sep)
+                if depth > 4:
+                    dirs.clear()
+                    continue
+                for fname in files:
+                    try:
+                        _seen_new_files.add(os.path.join(root, fname))
+                        count += 1
+                    except Exception:
+                        continue
+                if count > 100000:
+                    break
+        except (OSError, PermissionError):
+            continue
+        if count > 100000:
+            break
+    log("Pre-indexed %d existing files for monitoring" % count)
+
+# Pre-seed on startup so the first scan only analyzes NEW files
+_seed_existing_files()
+
+def check_new_files():
+    global _seen_new_files, _file_scan_cycle
+    _file_scan_cycle += 1
+    # Only scan every 3rd cycle to reduce CPU usage
+    if _file_scan_cycle % 3 != 0:
+        return
+    try:
+        new_count = 0
+        for d in _get_user_dirs():
+            try:
+                for root, dirs, files in os.walk(d):
+                    # Limit depth to avoid performance issues
+                    depth = root.replace(d, "").count(os.sep)
+                    if depth > 4:
+                        dirs.clear()
+                        continue
+                    for fname in files:
+                        try:
+                            fpath = os.path.join(root, fname)
+                            if fpath in _seen_new_files:
+                                continue
+                            _seen_new_files.add(fpath)
+                            _analyze_new_file(fpath)
+                            new_count += 1
+                        except Exception:
+                            continue
+                    # Cap: clear and re-seed to prevent unbounded growth
+                    if len(_seen_new_files) > 50000:
+                        _seen_new_files.clear()
+                        _seed_existing_files()
+            except (OSError, PermissionError):
+                continue
+        if new_count > 0:
+            log("Scanned %d new files" % new_count)
+    except Exception as e:
+        log("File scan error: %s" % e)
+
 log("CyberNova Host Defender v2 on %s" % HOSTNAME)
-log("Process / Network / USB / Keylogger / FIM monitoring active")
+log("Process / Network / USB / Keylogger / FIM / File monitoring active")
 while True:
     check_usb()
     check_keyloggers()
     check_fim()
+    check_new_files()
     send_batch({"processes": get_processes(), "connections": get_connections()})
     time.sleep(INTERVAL)
-"""
+'''

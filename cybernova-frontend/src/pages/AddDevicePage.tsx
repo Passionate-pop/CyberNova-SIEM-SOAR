@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { Copy, Check, Monitor, Server, ExternalLink, Shield, ArrowRight } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { fetchDevices } from '../services/api';
+import { useAuthStore } from '../stores/useAuthStore';
 
 export function AddDevicePage() {
+  const authToken = useAuthStore(s => s.user?.token);
   const [copied, setCopied] = useState<string | null>(null);
   const [deviceCount, setDeviceCount] = useState(0);
-  const apiUrl = window.location.origin.replace(':5173', ':8000').replace(':3000', ':8000');
+  // Use the SAME URL the browser uses — agent goes through nginx, not direct port 8000
+  const apiUrl = window.location.origin;
 
   useEffect(() => {
     fetchDevices().then(devices => setDeviceCount(devices.length)).catch(() => {});
@@ -18,8 +21,9 @@ export function AddDevicePage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const linuxCmd = `CYBERNOVA_API_URL=${apiUrl} curl -s ${apiUrl}/agent.sh | python3`;
-  const windowsInstallCmd = `$env:CYBERNOVA_API_URL=\"${apiUrl}\"; irm ${apiUrl}/agent.ps1 | iex`;
+  const token = authToken || '';
+  const linuxCmd = `CYBERNOVA_API_URL=${apiUrl} CYBERNOVA_TOKEN=${token} curl -s ${apiUrl}/agent.sh | python3`;
+  const windowsInstallCmd = `$env:CYBERNOVA_API_URL=\"${apiUrl}\"; $env:CYBERNOVA_TOKEN=\"${token}\"; irm ${apiUrl}/agent.ps1 | iex`;
 
   return (
     <div className="space-y-6">

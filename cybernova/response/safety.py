@@ -58,7 +58,7 @@ class ActionTemplate:
     safe_defaults: Dict[str, Any]
 
 
-AUTO_APPROVE_TIMEOUT_SECONDS = 15  # Wait for user approval for 15s, then auto-approve
+AUTO_APPROVE_TIMEOUT_SECONDS = 5  # Wait for user approval for 5s, then auto-approve (lowered from 15s for faster response)
 
 ACTION_TEMPLATES: Dict[str, ActionTemplate] = {
     "block_ip": ActionTemplate(
@@ -171,10 +171,16 @@ class SoarSafetyEngine:
         )
 
         if requires_manual:
-            status = ApprovalStatus.PENDING_APPROVAL
-            reason = self._build_rejection_reason(
-                action_type, effective_confidence, risk_level, template
-            )
+            # Auto-approve block_ip for ANY critical/high severity — don't require manual approval
+            if action_type == "block_ip" and severity in ("critical", "high"):
+                requires_manual = False
+                status = ApprovalStatus.AUTO_APPROVED
+                reason = f"Auto-approved: {action_type} (severity={severity}, risk={risk_level.value})"
+            else:
+                status = ApprovalStatus.PENDING_APPROVAL
+                reason = self._build_rejection_reason(
+                    action_type, effective_confidence, risk_level, template
+                )
         else:
             status = ApprovalStatus.AUTO_APPROVED
             reason = f"Auto-approved: {action_type} (confidence={effective_confidence:.2f}, risk={risk_level.value})"
@@ -198,10 +204,10 @@ class SoarSafetyEngine:
                 AUTO_APPROVE_TIMEOUT_SECONDS,
             )
 
-            # 🔥 15-SECOND AUTO-APPROVE TIMER
-            # For CRITICAL severity or high-risk actions, start a background timer
+            # 🔥 5-SECOND AUTO-APPROVE TIMER
+            # For CRITICAL/HIGH severity or medium+ risk actions, start a background timer
             # that auto-approves the action if the user doesn't respond in time
-            if severity in ("critical", "high") or risk_score >= 90:
+            if severity in ("critical", "high") or risk_score >= 50:
                 self._start_auto_approve_timer(decision.action_id, action_type, alert)
         else:
             log.info("SOAR safety: action %s auto-approved", action_type)
@@ -218,7 +224,7 @@ class SoarSafetyEngine:
                 decision = self._approval_queue.get(action_id)
                 if decision and decision.status == ApprovalStatus.PENDING_APPROVAL:
                     log.warning(
-                        "⏰ AUTO-APPROVE TIMEOUT (%ds): %s — no user response, auto-approving",
+                        "⏰ AUTO-APPROVE TIMEOUT (%ds): %s — no user response, auto-approving and executing",
                         AUTO_APPROVE_TIMEOUT_SECONDS, action_type,
                     )
                     decision.status = ApprovalStatus.AUTO_APPROVED

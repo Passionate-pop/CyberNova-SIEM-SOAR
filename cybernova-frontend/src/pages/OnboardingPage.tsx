@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowRight, Check, Loader2, Copy, Shield, Terminal, AlertCircle, Play, FileText, Cookie } from 'lucide-react';
 import { useAuthStore } from '../stores/useAuthStore';
 import { trackOnboardingEvent, trackConversionEvent } from '../lib/analytics';
+import { fetchUserDevices } from '../services/api';
 
 type OnboardingStep = 'terms' | 'agent' | 'waiting' | 'connected';
 
@@ -40,15 +41,27 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   };
 
   const getAgentCommand = () => {
-    const apiUrl = window.location.origin.replace(':5173', ':8000').replace(':3000', ':8000');
+    // The agent needs to reach the BACKEND directly, not the frontend nginx.
+    // Frontend dev ports → map to backend port 8000.
+    // Nginx proxy port (8888) stays as-is because nginx proxies /api/ to backend.
+    // Frontend standalone port (8080) → map to backend port 8000.
+    // Use the SAME URL the browser uses to reach the server.
+    // In production: http://server:8888 (nginx proxies /api/ → backend:8000)
+    // In dev mode:   http://localhost:5173 (Vite proxies /api/ → localhost:8000)
+    // The agent MUST go through the same entry point as the browser,
+    // NOT directly to port 8000 — that port may not be reachable from remote servers.
+    const apiUrl = window.location.origin;
+    // Include the user's JWT token so the agent can authenticate its requests
+    const token = authUser?.token || '';
     switch (selectedOS) {
       case 'windows':
         // Persistent installer — installs as a real app, runs 24/7, no terminal needed
-        return `$env:CYBERNOVA_API_URL=\"${apiUrl}\"; irm ${apiUrl}/agent.ps1 | iex`;
+        // CYBERNOVA_TOKEN lets the agent authenticate with the backend
+        return `$env:CYBERNOVA_API_URL=\"${apiUrl}\"; $env:CYBERNOVA_TOKEN=\"${token}\"; irm ${apiUrl}/agent.ps1 | iex`;
       case 'linux':
-        return `CYBERNOVA_API_URL=${apiUrl} curl -s ${apiUrl}/agent.sh | python3`;
+        return `CYBERNOVA_API_URL=${apiUrl} CYBERNOVA_TOKEN=${token} curl -s ${apiUrl}/agent.sh | python3`;
       case 'macos':
-        return `CYBERNOVA_API_URL=${apiUrl} curl -s ${apiUrl}/agent.sh | python3`;
+        return `CYBERNOVA_API_URL=${apiUrl} CYBERNOVA_TOKEN=${token} curl -s ${apiUrl}/agent.sh | python3`;
     }
   };
 
@@ -64,20 +77,20 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     if (!authUser?.token) return;
 
     try {
-      const response = await fetch('/api/v1/admin/devices', {
-        headers: { 'Authorization': `Bearer ${authUser.token}` },
+      const devices = await fetchUserDevices();
+      // Only count REAL devices — ones with a heartbeat in the last 2 minutes.
+      // This prevents demo/seeded devices from fooling the onboarding.
+      const now = Date.now();
+      const realDevices = devices.filter((d: any) => {
+        if (!d.last_heartbeat) return false;
+        const hb = new Date(d.last_heartbeat).getTime();
+        return (now - hb) < 120_000; // 2 minutes
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Backend returns { devices: [...], total: N }
-        const devices = Array.isArray(data) ? data : (data.devices || []);
-        if (devices.length > 0) {
-          trackOnboardingEvent('device_connected', { deviceCount: devices.length });
-          setStep('connected');
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-          }
+      if (realDevices.length > 0) {
+        trackOnboardingEvent('device_connected', { deviceCount: realDevices.length });
+        setStep('connected');
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
         }
       }
     } catch (err) {

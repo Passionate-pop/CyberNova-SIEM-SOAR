@@ -184,8 +184,10 @@ class AuthService:
             )
 
         # Determine user's purpose and org_type for JWT
+        # Individual users use tenant_name='personal'. Org users use their company name.
+        # is_new_org alone is not sufficient — individual registration also creates a new tenant.
         is_admin = "admin" in (roles or [])
-        purpose = "organization" if (org_key or is_new_org) else "individual"
+        purpose = "organization" if (org_key or (is_new_org and tenant_name != "personal")) else "individual"
         org_type = "boss" if (is_admin and purpose == "organization") else ("staff" if purpose == "organization" else "")
 
         access_token, refresh_token = create_tokens({

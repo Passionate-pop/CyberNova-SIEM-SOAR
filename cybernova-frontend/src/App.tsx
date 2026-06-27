@@ -53,7 +53,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [apiDown, setApiDown] = useState(isApiDown());
   const [needsSetup, setNeedsSetup] = useState(false);
-  const [onboardingDone, setOnboardingDone] = useState(() => !!localStorage.getItem('cybernova_onboarding_complete'));
+  const [onboardingDone, setOnboardingDone] = useState(false);
 
   const purpose = localStorage.getItem('cybernova_purpose');
   const onboardingComplete = onboardingDone ? 'true' : localStorage.getItem('cybernova_onboarding_complete');
@@ -162,8 +162,8 @@ export default function App() {
     );
   }
 
-  // First-time users: no purpose AND never completed onboarding → show OnboardingPage
-  if (!purpose && !onboardingComplete) {
+  // First-time users: never completed onboarding → show OnboardingPage
+  if (!onboardingComplete) {
     return (
       <Suspense fallback={
         <div className="flex min-h-screen items-center justify-center text-cyber-muted">
@@ -185,7 +185,11 @@ export default function App() {
   }
 
   const CurrentPageComponent = pageComponents[currentPage];
-  const allowedPages = getAllowedPages(purpose || user?.purpose || 'individual', user?.role || 'viewer');
+  // Use multi-source resolver for purpose/role to handle edge cases
+  // where user object loses these fields (JWT refresh, persist corruption, etc.)
+  const resolvedPurpose = resolveUserPurpose(user);
+  const resolvedRole = resolveUserRole(user);
+  const allowedPages = getAllowedPages(resolvedPurpose, resolvedRole);
   const showPage = allowedPages.includes(currentPage);
 
   return (
@@ -204,6 +208,10 @@ export default function App() {
         onLogout={() => {
           localStorage.removeItem('cybernova_device_added');
           localStorage.removeItem('cybernova_purpose');
+          localStorage.removeItem('cybernova_onboarding_complete');
+          localStorage.removeItem('cybernova_org_key');
+          localStorage.removeItem('cybernova_org_type');
+          localStorage.removeItem('cybernova_org_name');
           useAuthStore.getState().logout();
           window.location.href = '/';
         }}
@@ -255,6 +263,60 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+/**
+ * Read the JWT token payload directly from the persisted auth store.
+ * This is the most reliable source of user claims — it bypasses any
+ * corruption in the user object.
+ */
+function readJwtFromStorage(): Record<string, unknown> | null {
+  try {
+    const stored = localStorage.getItem('cybernova-auth');
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    const token = parsed.state?.token;
+    if (!token) return null;
+    const base64 = token.split('.')[1];
+    const json = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Try to determine user's purpose from EVERY available source.
+ * The user object from the auth store may lose its `purpose` field
+ * due to JWT refresh stripping claims, corrupted persist storage, etc.
+ */
+function resolveUserPurpose(user: any): string {
+  // 1. From the user object in the auth store
+  if (user?.purpose) return user.purpose;
+  // 2. From localStorage (set during onboarding)
+  const stored = localStorage.getItem('cybernova_purpose');
+  if (stored) return stored;
+  // 3. From the JWT token payload directly (most reliable)
+  const jwt = readJwtFromStorage();
+  if (jwt?.purpose) return jwt.purpose as string;
+  // 4. From the last user blob stored during registration
+  try {
+    const lastUser = JSON.parse(localStorage.getItem('cybernova_last_user') || '{}');
+    if (lastUser.purpose) return lastUser.purpose;
+  } catch {}
+  return 'individual';
+}
+
+function resolveUserRole(user: any): string {
+  // 1. From the user object in the auth store
+  if (user?.role) return user.role;
+  if (user?.roles?.[0]) return user.roles[0];
+  // 2. From localStorage org_type (set during login for org users)
+  if (localStorage.getItem('cybernova_org_type') === 'boss') return 'admin';
+  // 3. From the JWT token payload directly
+  const jwt = readJwtFromStorage();
+  if (jwt && Array.isArray(jwt.roles) && (jwt.roles as string[]).length > 0) return (jwt.roles as string[])[0];
+  return 'viewer';
 }
 
 function getAllowedPages(purpose: string, role: string): Page[] {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Save, RotateCcw, Gauge, Shield, ShieldCheck, Lock, Terminal, Download, Play, CheckCircle, ExternalLink, ChevronRight, X, Key, Copy, Plus } from 'lucide-react';
+import { Save, RotateCcw, Gauge, Shield, ShieldCheck, Lock, CheckCircle, Key, Copy, Plus } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { SeverityBadge } from '../components/ui/SeverityBadge';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -24,10 +24,6 @@ export function SettingsPage() {
     }
   });
   const [saved, setSaved] = useState(false);
-  const [quickStartDismissed, setQuickStartDismissed] = useState(() => {
-    return localStorage.getItem('cybernova_quickstart_dismissed') === 'true';
-  });
-
   // Org key management state (boss/admin only)
   const isOrgBoss = currentUser?.purpose === 'organization' && currentUser?.org_type === 'boss';
   const [orgKeys, setOrgKeys] = useState<OrgKeyItem[]>([]);
@@ -36,6 +32,7 @@ export function SettingsPage() {
   const [newOrgKey, setNewOrgKey] = useState('');
   const [newKeyName, setNewKeyName] = useState('');
   const [orgKeyCopied, setOrgKeyCopied] = useState(false);
+  const [primaryKeyCopied, setPrimaryKeyCopied] = useState(false);
   const [orgKeyError, setOrgKeyError] = useState('');
   const [orgKeySuccess, setOrgKeySuccess] = useState('');
 
@@ -99,116 +96,8 @@ export function SettingsPage() {
     }
   };
 
-  const serverUrl = typeof window !== 'undefined' ? window.location.origin : '';
-
-  const quickStartSteps = [
-    {
-      step: 1,
-      title: 'Install the Agent',
-      description: 'Copy and run this one-liner on the device you want to protect',
-      command: `irm ${serverUrl}/agent.ps1 | iex`,
-      icon: <Terminal size={18} className="text-cyan-400" />,
-    },
-    {
-      step: 2,
-      title: 'Verify Connection',
-      description: 'Your device should appear in the Devices page within seconds',
-      link: '/devices',
-      linkLabel: 'View Devices',
-      icon: <Play size={18} className="text-green-400" />,
-    },
-    {
-      step: 3,
-      title: 'Configure Detection Rules',
-      description: 'Enable or disable rules based on your security needs',
-      icon: <Shield size={18} className="text-purple-400" />,
-    },
-    {
-      step: 4,
-      title: 'Monitor Alerts',
-      description: 'Real-time alerts will appear on the dashboard as threats are detected',
-      link: '/alerts',
-      linkLabel: 'View Alerts',
-      icon: <CheckCircle size={18} className="text-amber-400" />,
-    },
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Quick Start Guide */}
-      {!quickStartDismissed && (
-        <Card title="Quick Start" subtitle="Get CyberNova running in 4 steps">
-          <div className="relative">
-            <button
-              onClick={() => {
-                localStorage.setItem('cybernova_quickstart_dismissed', 'true');
-                setQuickStartDismissed(true);
-              }}
-              className="absolute top-0 right-0 p-1 rounded-md text-cyber-muted hover:text-cyber-text hover:bg-cyber-border/50 transition-colors"
-              title="Dismiss"
-            >
-              <X size={16} />
-            </button>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {quickStartSteps.map((item) => (
-                <div
-                  key={item.step}
-                  className="relative rounded-xl border border-cyber-border bg-cyber-bg/50 p-4 hover:border-cyber-accent/30 transition-all group"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyber-accent/10 border border-cyber-accent/20">
-                      {item.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-cyber-muted">Step {item.step}</span>
-                      </div>
-                      <h3 className="text-sm font-semibold text-cyber-text mb-1">{item.title}</h3>
-                      <p className="text-xs text-cyber-muted leading-relaxed">{item.description}</p>
-
-                      {/* Command to copy */}
-                      {item.command && (
-                        <div className="mt-3 flex items-center gap-2 bg-black/30 rounded-lg px-3 py-2 border border-cyber-border/50">
-                          <code className="flex-1 text-xs text-green-400 font-mono overflow-x-auto whitespace-nowrap">{item.command}</code>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(item.command!);
-                            }}
-                            className="shrink-0 p-1 rounded hover:bg-cyber-border/50 transition-colors"
-                            title="Copy to clipboard"
-                          >
-                            <Download size={12} className="text-cyber-muted" />
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Link */}
-                      {item.link && (
-                        <a
-                          href={item.link}
-                          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-cyber-accent hover:text-cyan-400 transition-colors"
-                        >
-                          {item.linkLabel}
-                          <ExternalLink size={10} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/20">
-              <p className="text-xs text-cyber-muted flex items-center gap-2">
-                <ChevronRight size={12} className="text-cyan-400" />
-                <span>Need help? Visit the <a href="/docs" className="text-cyan-400 hover:text-cyan-300 underline">documentation</a> or check the <a href="http://localhost:8000/docs" className="text-cyan-400 hover:text-cyan-300 underline">API reference</a>.</span>
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
-
       {/* Alert Thresholds */}
       <Card title="Alert Thresholds" subtitle="Configure severity levels for alerts">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -296,6 +185,35 @@ export function SettingsPage() {
       {isAdmin && isOrgBoss && (
       <Card title="Organization Keys" subtitle="Manage staff invitation keys">
         <div className="space-y-4">
+          {/* ── Primary Org Key (from registration) ────────────────── */}
+          {(currentUser?.org_key || localStorage.getItem('cybernova_org_key')) && (
+            <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/30 space-y-3">
+              <div className="flex items-center gap-2">
+                <Key size={14} className="text-purple-400" />
+                <span className="text-sm font-medium text-purple-300">Primary Organization Key</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 p-3 rounded-lg bg-black/30 border border-cyber-border font-mono text-sm text-cyan-400 text-center tracking-wider select-all">
+                  {currentUser?.org_key || localStorage.getItem('cybernova_org_key')}
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(currentUser?.org_key || localStorage.getItem('cybernova_org_key') || '');
+                    setPrimaryKeyCopied(true);
+                    setTimeout(() => setPrimaryKeyCopied(false), 2000);
+                  }}
+                  className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-all"
+                  title="Copy to clipboard"
+                >
+                  {primaryKeyCopied ? <CheckCircle size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
+              <p className="text-xs text-purple-400/70">
+                Share this key with staff members so they can register and connect their servers to your organization.
+              </p>
+            </div>
+          )}
+
           {/* Org Settings Summary */}
           {orgSettings && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

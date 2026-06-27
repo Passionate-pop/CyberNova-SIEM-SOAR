@@ -775,6 +775,11 @@ class RuleEngine:
             DetectionRule("encoded_powershell_cmdline", "critical",
                           {"command_line": "regex:-enc\\s|-en\\s|-enCode|-e\\s+"}, 90.0,
                           "PowerShell encoded command detected via command line analysis"),
+            # Host Agent network threat detection
+            DetectionRule("suspicious_network", "high",
+                          {"event_type": "suspicious_network"}, 70.0,
+                          "Suspicious network activity detected by host agent — possible C2 or data exfil",
+                          "TA0011", "T1046"),
             DetectionRule("powershell_process_match", "critical",
                           {"process_name": "regex:powershell\\.exe"}, 75.0,
                           "PowerShell process execution detected"),

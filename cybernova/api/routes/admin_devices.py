@@ -34,6 +34,7 @@ class DeviceResponse(BaseModel):
     is_isolated: bool = False
     last_heartbeat: str
     tenant_id: str
+    owner_id: str = ""
 
 
 class DeviceListResponse(BaseModel):
@@ -62,6 +63,7 @@ async def list_devices(
                 is_isolated=d.is_isolated or False,
                 last_heartbeat=d.last_heartbeat.isoformat() if d.last_heartbeat else "",
                 tenant_id=d.tenant_id,
+                owner_id=d.owner_id or "",
             )
             for d in devices
         ],

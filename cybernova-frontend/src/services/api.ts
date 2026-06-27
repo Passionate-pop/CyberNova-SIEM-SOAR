@@ -157,11 +157,21 @@ async function apiRequest<T>(endpoint: string, options: FetchOptions = {}): Prom
   });
 
   if (res.status === 401) {
-    logAuthEvent({ type: 'session_expired', path: endpoint });
-    // Clear the entire auth state so the login page shows — NO page reload
-    clearAuthState();
-    setApiDown(true);
-    throw new Error('Session expired');
+    if (!noAuth) {
+      // Authenticated endpoint returned 401 - session expired
+      logAuthEvent({ type: 'session_expired', path: endpoint });
+      clearAuthState();
+      setApiDown(true);
+      throw new Error('Session expired');
+    } else {
+      // Login/register endpoint returned 401 - invalid credentials
+      logAuthEvent({ type: 'login_failed', reason: 'Invalid credentials' });
+      const errorBody = await res.json().catch(() => ({ detail: 'Invalid credentials' }));
+      const detailStr = typeof errorBody.detail === 'string'
+        ? errorBody.detail
+        : 'Invalid credentials';
+      throw new Error(detailStr);
+    }
   }
 
   if (!res.ok) {
@@ -621,6 +631,27 @@ export async function fetchPipelineStatus(): Promise<{
   return safeFetch('/api/v1/pipeline/status');
 }
 
+export async function fetchUserDevices(): Promise<Device[]> {
+  try {
+    const result = await safeFetch<Array<Record<string, unknown>>>('/api/v1/devices/list');
+    if (Array.isArray(result)) {
+      return result.map((d) => ({
+        id: (d.id as string) || '',
+        hostname: (d.hostname as string) || 'unknown',
+        ip_address: (d.ip_address as string) || '',
+        os_type: (d.os_type as string) || undefined,
+        status: (d.status as DeviceStatus) || 'offline',
+        last_heartbeat: (d.last_heartbeat as string) || undefined,
+        tenant_id: (d.tenant_id as string) || '',
+        is_active: (d.is_active as boolean) ?? true,
+        owner_id: (d.owner_id as string) || undefined,
+      }));
+    }
+    return [];
+  } catch { /* fall through */ }
+  return [];
+}
+
 export async function fetchDevices(): Promise<Device[]> {
   try {
     const result = await safeFetch<{ devices: Array<Record<string, unknown>>; total: number }>('/api/v1/admin/devices');
@@ -634,6 +665,7 @@ export async function fetchDevices(): Promise<Device[]> {
         last_heartbeat: (d.last_heartbeat as string) || undefined,
         tenant_id: (d.tenant_id as string) || '',
         is_active: (d.is_active as boolean) ?? true,
+        owner_id: (d.owner_id as string) || undefined,
       }));
     }
     return [];

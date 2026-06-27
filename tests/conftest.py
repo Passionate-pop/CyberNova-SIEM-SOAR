@@ -15,15 +15,17 @@ import pytest_asyncio
 
 
 def pytest_configure(config):
-    """Suppress harmless upstream deprecation warnings.
+    """Configure pytest — register custom markers and suppress deprecation warnings.
     
-    OpenTelemetry's _importlib_metadata uses deprecated SelectableGroups
-    dict interface — upstream Python stdlib issue, not ours to fix.
+    - Registers @pytest.mark.slow for load/performance tests
+    - Suppresses OpenTelemetry's deprecated SelectableGroups warning
     """
     config.addinivalue_line(
         "filterwarnings",
         "ignore::DeprecationWarning:opentelemetry.util._importlib_metadata",
     )
+    # Register custom markers
+    config.addinivalue_line("markers", "slow: mark test as a slow/load/performance test (deselect with '-m \"not slow\"')")
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,

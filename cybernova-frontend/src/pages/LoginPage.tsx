@@ -139,6 +139,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         const tenantName = purpose === 'individual' ? 'personal' : (companyName || 'default');
         
+        // Clear stale onboarding/purpose from any previous session so App.tsx shows onboarding for this new user
+        // Only for NEW registrations, not returning users logging in
+        localStorage.removeItem('cybernova_onboarding_complete');
+        localStorage.removeItem('cybernova_purpose');
+        
         userData = await registerUser(
           username, 
           email, 
@@ -173,22 +178,19 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       userData.org_name = userData.org_name || (companyName || undefined);
       userData.company_size = userData.company_size || (companySize || undefined);
 
-      localStorage.setItem('cybernova_user_role', userData.role);
-      // Set purpose so App.tsx knows the user's context after login.
-      // For returning users this prevents an unnecessary redirect to OnboardingPage.
-      // OnboardingPage will still appear for first-time users who haven't set
-      // cybernova_onboarding_complete yet.
-      localStorage.setItem('cybernova_purpose', purpose || userData.purpose || 'individual');
+      // Store org context for Sidebar (purpose is set by OnboardingPage when completed)
       if (purpose === 'organization') {
         localStorage.setItem('cybernova_org_type', orgType || '');
-        // Use org_name from JWT (backend-provided) as primary, fallback to local state
         localStorage.setItem('cybernova_org_name', userData.org_name || companyName || '');
+        // Persist org_key in dedicated localStorage key so the Settings page can show it anytime
+        if (userData.org_key) {
+          localStorage.setItem('cybernova_org_key', userData.org_key);
+        }
       }
       // Store user for success step
       localStorage.setItem('cybernova_last_user', JSON.stringify(userData));
       
       // If org admin just registered and got an org_key, show it before proceeding
-      // Only show for boss/org admin — NOT for individual users
       if (userData.org_key && purpose === 'organization' && orgType === 'boss') {
         setGeneratedOrgKey(userData.org_key);
         setStep('success');

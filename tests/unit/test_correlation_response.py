@@ -331,12 +331,21 @@ class TestSoarEngine:
             result = engine.should_trigger({"confirmed": True, "severity": "low", "risk_score": 0})
             assert result is False
 
-    def test_should_trigger_false_when_not_confirmed(self):
+    def test_should_trigger_false_when_not_confirmed_and_low_severity(self):
+        with patch.dict("os.environ", {"CYBERNOVA_SOAR_ENABLED": "true", "CYBERNOVA_SOAR_ACTIONS": "log"}, clear=True):
+            from cybernova.soar.engine import SoarEngine
+            engine = SoarEngine()
+            # Low severity + low risk + not confirmed → should NOT trigger
+            result = engine.should_trigger({"confirmed": False, "severity": "low", "risk_score": 10})
+            assert result is False
+
+    def test_should_trigger_true_critical_auto_confirms(self):
+        """Critical severity should auto-confirm even when confirmed=False."""
         with patch.dict("os.environ", {"CYBERNOVA_SOAR_ENABLED": "true", "CYBERNOVA_SOAR_ACTIONS": "log"}, clear=True):
             from cybernova.soar.engine import SoarEngine
             engine = SoarEngine()
             result = engine.should_trigger({"confirmed": False, "severity": "critical"})
-            assert result is False
+            assert result is True
 
     def test_should_trigger_true_critical_confirmed(self):
         with patch.dict("os.environ", {"CYBERNOVA_SOAR_ENABLED": "true", "CYBERNOVA_SOAR_ACTIONS": "log"}, clear=True):
@@ -371,18 +380,20 @@ class TestSoarEngine:
         result = action.execute({"source_ip": "1.2.3.4", "dest_ip": "5.6.7.8"})
         assert result is True
 
-    def test_trigger_returns_false_when_not_confirmed(self):
+    def test_trigger_returns_false_when_not_confirmed_and_low(self):
         with patch.dict("os.environ", {"CYBERNOVA_SOAR_ENABLED": "true", "CYBERNOVA_SOAR_ACTIONS": "log"}, clear=True):
             from cybernova.soar.engine import SoarEngine
             engine = SoarEngine()
-            result = engine.trigger({"confirmed": False, "severity": "critical"})
+            # Low severity + low risk + not confirmed → should NOT trigger
+            result = engine.trigger({"confirmed": False, "severity": "low", "risk_score": 10})
             assert result is False
 
-    def test_trigger_if_returns_none_when_not_confirmed(self):
+    def test_trigger_if_returns_none_when_not_confirmed_and_low(self):
         with patch.dict("os.environ", {"CYBERNOVA_SOAR_ENABLED": "true", "CYBERNOVA_SOAR_ACTIONS": "log"}, clear=True):
             from cybernova.soar.engine import SoarEngine
             engine = SoarEngine()
-            result = engine.trigger_if({"confirmed": False, "severity": "critical"})
+            # Low severity + low risk + not confirmed → should NOT trigger → returns None
+            result = engine.trigger_if({"confirmed": False, "severity": "low", "risk_score": 10})
             assert result is None
 
 

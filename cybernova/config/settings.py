@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     secret_key: str = "CHANGE_ME_TO_A_RANDOM_64_CHAR_STRING"
     admin_password: str = ""  # injected via ADMIN_PASSWORD_FILE
     agent_password: str = ""  # injected via AGENT_PASSWORD_FILE
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 1440  # 24 hours — agent needs long-lived tokens
     cors_origins: str = "http://localhost,http://localhost:3000,http://localhost:5173,http://localhost:8080,http://localhost:8888,http://127.0.0.1,https://localhost"
     rate_limit: int = 100
     max_login_attempts: int = 5

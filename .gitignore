@@ -4,7 +4,6 @@
 .env.*
 # But DO commit the example templates (users copy these)
 !.env.example
-!.env.production.example
 
 # Password/secret files — never commit
 secretsadmin_password.txt

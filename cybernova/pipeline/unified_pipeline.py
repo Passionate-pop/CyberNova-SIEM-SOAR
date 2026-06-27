@@ -150,12 +150,12 @@ class UnifiedPipeline:
         source_type: str = "json",
     ) -> str:
         """Entry point: ingest raw event into pipeline.
-        Validates leader status for HA multi-replica deployments.
+
+        The pipeline only starts on the leader replica (or in single-server local mode),
+        so this check is redundant with the startup logic. We SKIP the separate leader
+        check here to avoid double-validation bugs and allow single-server deployments
+        to work without HA leader election.
         """
-        from cybernova.ha.pipeline_aware import leader_aware_pipeline
-        from cybernova.ha.leader import leader_election
-        if not leader_aware_pipeline.is_leader and not leader_election._local_mode:
-            raise RuntimeError("Not the leader replica — forward this request to the leader instance")
 
         event_id = str(uuid4())
         envelope = PipelineEnvelope(
@@ -183,10 +183,19 @@ class UnifiedPipeline:
         source: str = "api",
         source_type: str = "json",
     ) -> int:
-        """Ingest multiple events concurrently."""
+        """Ingest multiple events concurrently. Logs any ingestion errors."""
         tasks = [self.ingest(e, tenant_id, source, source_type) for e in events]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        return sum(1 for r in results if isinstance(r, str))
+        accepted = 0
+        for r in results:
+            if isinstance(r, str):
+                accepted += 1
+            elif isinstance(r, Exception):
+                log.error("Event ingestion failed: %s: %s", type(r).__name__, r)
+        if accepted < len(events):
+            log.warning("ingest_batch: %d/%d events accepted for tenant=%s source=%s",
+                        accepted, len(events), tenant_id, source)
+        return accepted
 
     async def get_metrics(self) -> Dict[str, Any]:
         pending_counts = {}

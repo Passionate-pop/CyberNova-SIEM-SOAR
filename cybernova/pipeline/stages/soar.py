@@ -39,36 +39,40 @@ class SOARStage(PipelineStage):
             risk_score = alert.get("risk_score", 0)
             rule_name = alert.get("rule_name", "")
 
-            # Critical: auto-block with high confidence (risk >= 80)
-            # High: auto-block if risk >= 70, otherwise alert admin
-            # Medium: alert admin only
-            if severity == "critical" and risk_score >= 80:
+            # Critical: auto-block with high confidence (risk >= 50 — lowered from 80)
+            # High: auto-block if risk >= 40 (lowered from 70), otherwise alert admin
+            # Medium: alert admin if risk >= 50 (lowered from 60)
+            target_ip = alert.get("source_ip", "") or alert.get("device_id", "")
+            if severity == "critical" and risk_score >= 50:
                 action = self._determine_action(rule_name, severity)
                 if action:
                     soar_actions.append({
                         "alert_id": alert["id"],
                         "action": action,
-                        "target": alert.get("source_ip", "") or alert.get("device_id", ""),
+                        "target": target_ip,
                         "tenant_id": tenant_id,
                         "severity": severity,
                         "rule_name": rule_name,
                         "alert": alert,
                     })
-            elif severity == "high" and risk_score >= 70:
+                log.warning("SOAR: critical alert %s (risk=%s) -> %s on %s", rule_name, risk_score, action or "none", target_ip)
+            elif severity == "high" and risk_score >= 40:
                 # High severity with decent confidence: auto-block
                 action = self._determine_action(rule_name, severity)
                 if action:
                     soar_actions.append({
                         "alert_id": alert["id"],
                         "action": action,
-                        "target": alert.get("source_ip", "") or alert.get("device_id", ""),
+                        "target": target_ip,
                         "tenant_id": tenant_id,
                         "severity": severity,
                         "rule_name": rule_name,
                         "alert": alert,
                     })
+                if action:
+                    log.warning("SOAR: high alert %s (risk=%s) -> %s on %s", rule_name, risk_score, action, target_ip)
             elif severity == "high":
-                # High severity but lower confidence: alert admin only
+                # High severity but lower confidence: alert admin with notify action
                 soar_actions.append({
                     "alert_id": alert["id"],
                     "action": "alert_admin",
@@ -78,7 +82,8 @@ class SOARStage(PipelineStage):
                     "rule_name": rule_name,
                     "alert": alert,
                 })
-            elif severity == "medium" and risk_score >= 60:
+                log.warning("SOAR: high alert %s (risk=%s) -> admin notification", rule_name, risk_score)
+            elif severity == "medium" and risk_score >= 50:
                 # Medium severity with higher risk: alert admin
                 soar_actions.append({
                     "alert_id": alert["id"],
@@ -89,6 +94,7 @@ class SOARStage(PipelineStage):
                     "rule_name": rule_name,
                     "alert": alert,
                 })
+                log.warning("SOAR: medium alert %s (risk=%s) -> admin notification", rule_name, risk_score)
 
         if soar_actions:
             async with self._remediate_semaphore:

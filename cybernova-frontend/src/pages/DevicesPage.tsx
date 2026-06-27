@@ -4,7 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useFetch } from '../hooks/useFetch';
-import { fetchDevices, isolateDevice } from '../services/api';
+import { fetchDevices, fetchUserDevices, isolateDevice } from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Device, DeviceStatus } from '../types';
 
@@ -24,7 +24,9 @@ const statusBg: Record<DeviceStatus, string> = {
 
 export function DevicesPage() {
   const currentUser = useAuthStore(s => s.user);
-  const { data: devices, loading, refetch } = useFetch(useCallback(() => fetchDevices(), []));
+  const isAdmin = currentUser?.role === 'admin';
+  const fetchFn = useCallback(() => isAdmin ? fetchDevices() : fetchUserDevices(), [isAdmin]);
+  const { data: devices, loading, refetch } = useFetch(fetchFn);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DeviceStatus | 'all'>('all');
   const [sortField, setSortField] = useState<'hostname' | 'last_heartbeat' | 'status'>('last_heartbeat');

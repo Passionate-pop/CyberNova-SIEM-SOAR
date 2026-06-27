@@ -86,6 +86,7 @@ notifications_router = _safe_import("cybernova.api.routes.notifications_router",
 agent_download_router = _safe_import("cybernova.api.routes.agent_download", "router")
 agent_auth_router = _safe_import("cybernova.api.routes.agent_auth", "router")
 agent_heartbeat_router = _safe_import("cybernova.api.routes.agent_heartbeat", "router")
+agent_telemetry_router = _safe_import("cybernova.api.routes.agent_telemetry", "router")
 agent_commands_router = _safe_import("cybernova.api.routes.agent_commands", "router")
 agent_update_router = _safe_import("cybernova.api.routes.agent_update", "router")
 noise_router = _safe_import("cybernova.detection.routes.noise_routes", "router")
@@ -119,6 +120,8 @@ rag_router = _safe_import("cybernova.ai.rag.router", "router")
 tenant_deletion_router = _safe_import("cybernova.api.routes.tenant_deletion", "router")
 tenant_export_router = _safe_import("cybernova.api.routes.tenant_export", "router")
 security_overview_router = _safe_import("cybernova.api.routes.security_overview", "router")
+analysis_router = _safe_import("cybernova.api.routes.analysis", "router")
+diagnostics_router = _safe_import("cybernova.api.routes.diagnostics", "router")
 
 setup_json_logging()
 from cybernova.monitoring.tracing import setup_tracing  # noqa: E402
@@ -378,7 +381,7 @@ for _router in [
     pipeline_router, audit_router, org_router, admin_devices_router,
     policy_admin_router, dlq_router, metrics_router, analytics_router,
     setup_router, soar_router, agent_ingest_router, demo_router,
-    agent_auth_router, agent_heartbeat_router, agent_commands_router,
+    agent_auth_router, agent_heartbeat_router, agent_telemetry_router, agent_commands_router,
     agent_update_router, agent_download_router, noise_router,
     notifications_router, agent_receiver_router,
     threat_intel_feeds_router, anomaly_router, isolation_router,
@@ -389,7 +392,7 @@ for _router in [
     marketplace_router, genai_router, worm_router, cloud_router,
     cspm_router, residency_router, abac_router, ml_router, ueba_router,
     ransomware_router, rag_router, tenant_deletion_router,
-    tenant_export_router, security_overview_router,
+    tenant_export_router,    analysis_router, security_overview_router, diagnostics_router,
 ]:
     if _router is not None:
         app.include_router(_router)

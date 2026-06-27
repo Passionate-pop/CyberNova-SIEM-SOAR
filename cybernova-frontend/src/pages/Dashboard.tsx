@@ -19,7 +19,8 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useFetch } from '../hooks/useFetch';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useAuthStore } from '../stores/useAuthStore';
-import { fetchMetrics, fetchAlerts, fetchDevices, blockIP, isolateDevice, executeAction, seedDemoData, simulateAttack } from '../services/api';
+import { fetchMetrics, fetchAlerts, fetchDevices, fetchUserDevices, blockIP, isolateDevice, executeAction, seedDemoData } from '../services/api';
+import { LiveAttackDemo } from '../components/demo/LiveAttackDemo';
 
 type ProtectionStatus = 'protected' | 'warning' | 'compromised';
 
@@ -31,7 +32,7 @@ export function Dashboard() {
 
   // Data fetching — only call admin endpoints for admin users
   const { data: metrics, refetch: refetchMetrics } = useFetch(useCallback(() => fetchMetrics(), []));
-  const { data: devices, loading: devicesLoading, refetch: refetchDevices } = useFetch(useCallback(() => (isAdmin && isOrg) ? fetchDevices() : Promise.resolve([]), [isAdmin, isOrg]));
+  const { data: devices, loading: devicesLoading, refetch: refetchDevices } = useFetch(useCallback(() => isOrg ? (isAdmin ? fetchDevices() : fetchUserDevices()) : Promise.resolve([]), [isAdmin, isOrg]));
   const { data: alerts, loading: alertsLoading, refetch: refetchAlerts } = useFetch(useCallback(() => fetchAlerts(), []));
 
   // Real-time WebSocket
@@ -61,7 +62,7 @@ export function Dashboard() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: string; alert: any } | null>(null);
   const [seeding, setSeeding] = useState(false);
-  const [simulating, setSimulating] = useState(false);
+  const [showLiveDemo, setShowLiveDemo] = useState(false);
 
   useEffect(() => { setLastUpdated(new Date().toLocaleTimeString()); }, [alerts]);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); } }, [toast]);
@@ -116,19 +117,6 @@ export function Dashboard() {
       setToast({ message: `Seed failed: ${e instanceof Error ? e.message : 'error'}`, type: 'error' });
     } finally {
       setSeeding(false);
-    }
-  };
-
-  const handleSimulateAttack = async () => {
-    setSimulating(true);
-    try {
-      await simulateAttack();
-      setToast({ message: 'Attack simulation started — alerts will appear shortly', type: 'success' });
-      setTimeout(() => { refetchAlerts(); refetchMetrics(); }, 2000);
-    } catch (e) {
-      setToast({ message: `Simulation failed: ${e instanceof Error ? e.message : 'error'}`, type: 'error' });
-    } finally {
-      setSimulating(false);
     }
   };
 
@@ -211,10 +199,10 @@ export function Dashboard() {
                 <Zap size={14} className={seeding ? 'animate-spin' : ''} />
                 {seeding ? 'Seeding...' : 'Seed Demo Data'}
               </button>
-              <button onClick={handleSimulateAttack} disabled={simulating}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50">
-                <AlertTriangle size={14} className={simulating ? 'animate-pulse' : ''} />
-                {simulating ? 'Simulating...' : 'Simulate Attack'}
+              <button onClick={() => setShowLiveDemo(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold hover:from-red-500 hover:to-rose-500 transition-all shadow-lg shadow-red-500/25">
+                <AlertTriangle size={14} className="animate-pulse" />
+                Live Attack Demo
               </button>
             </>
           )}
@@ -510,6 +498,14 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Live Attack Demo Overlay ──────────────────────────────── */}
+      <LiveAttackDemo
+        isOpen={showLiveDemo}
+        onClose={() => setShowLiveDemo(false)}
+        onAlertsRefetch={refetchAlerts}
+        onMetricsRefetch={refetchMetrics}
+      />
 
       {/* ── Confirm Dialog ────────────────────────────────────────── */}
       <ConfirmDialog

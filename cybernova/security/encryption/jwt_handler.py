@@ -127,7 +127,18 @@ def create_tokens(data: dict) -> tuple[str, str]:
     })
     access_token = jwt.encode(access_payload, settings.secret_key, algorithm="HS256")
 
-    refresh_payload = {"user_id": data.get("user_id"), "tenant_id": data.get("tenant_id")}
+    # Refresh token carries ALL user claims so token refresh preserves purpose/roles/org context
+    refresh_payload = {
+        "user_id": data.get("user_id"),
+        "tenant_id": data.get("tenant_id"),
+        "username": data.get("username", ""),
+        "email": data.get("email", ""),
+        "roles": data.get("roles", ["viewer"]),
+        "purpose": data.get("purpose", "individual"),
+        "org_type": data.get("org_type", ""),
+        "org_name": data.get("org_name", ""),
+        "company_size": data.get("company_size", ""),
+    }
     refresh_payload.update({
         "exp": now + timedelta(days=7),
         "nbf": now, "iat": now,
@@ -161,11 +172,19 @@ def refresh_access_token(refresh_token: str) -> tuple[str, str] | None:
         if payload.get("type") != "refresh":
             return None
         
-        # Create new tokens with same user data
-        return create_tokens({
+        # Build new token data preserving ALL user claims from the original access token
+        # (the refresh token only stores user_id + tenant_id; we must look up the rest from DB)
+        token_data = {
             "user_id": payload.get("user_id"),
             "tenant_id": payload.get("tenant_id"),
-        })
+            "username": payload.get("username", ""),
+            "roles": payload.get("roles", ["viewer"]),
+            "purpose": payload.get("purpose", "individual"),
+            "org_type": payload.get("org_type", ""),
+            "org_name": payload.get("org_name", ""),
+            "company_size": payload.get("company_size", ""),
+        }
+        return create_tokens(token_data)
     except Exception as e:
         log.error("Token refresh failed: %s", e)
         return None

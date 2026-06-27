@@ -90,7 +90,8 @@ function resolveNavItems(user: any): { id: Page; label: string; icon: string; pe
 }
 
 function getHeaderInfo(user: any): { title: string; subtitle: string; accentColor: string } {
-  const purpose = localStorage.getItem('cybernova_purpose') || 'individual';
+  // Prefer user object's purpose (from JWT/auth store), fallback to localStorage
+  const purpose = user?.purpose || localStorage.getItem('cybernova_purpose') || 'individual';
   // Prefer user object's org_name (from JWT), fallback to localStorage
   const orgName = user?.org_name || localStorage.getItem('cybernova_org_name');
   

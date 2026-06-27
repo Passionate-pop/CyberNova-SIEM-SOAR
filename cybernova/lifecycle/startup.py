@@ -146,9 +146,16 @@ async def startup_ha(heartbeat: "HeartbeatMonitor") -> Any:
 
 
 def resolve_is_leader(leader_election: Any) -> bool:
-    """Determine if this replica is the active leader."""
+    """Determine if this replica is the active leader.
+
+    Returns True when:
+    - HA leader election exists AND this replica IS the leader, OR
+    - HA leader election is in local mode, OR
+    - HA leader election is None (single-server deployment — always the leader)
+    """
     if leader_election is None:
-        return False
+        log.info("HA leader election not available — running in single-server (local) mode")
+        return True
     return leader_election.is_leader or getattr(leader_election, "_local_mode", False)
 
 
@@ -611,30 +618,13 @@ async def _auto_seed_demo_data() -> None:
                 db.add(alert)
                 created += 1
 
-            # Seed demo devices so the dashboard 'My Device' / 'Connected Servers' panel isn't empty
-            demo_devices = [
-                {"hostname": "DC-PRIMARY", "ip": "10.0.0.5", "os": "Windows Server 2022", "status": "active"},
-                {"hostname": "WS-FINANCE03", "ip": "10.0.0.33", "os": "Windows 11", "status": "active"},
-                {"hostname": "WS-DEV07", "ip": "10.0.0.22", "os": "Windows 11", "status": "active"},
-                {"hostname": "SRV-DB01", "ip": "10.0.0.10", "os": "Ubuntu 22.04", "status": "active"},
-            ]
-            device_count = 0
-            for dev in demo_devices:
-                device = Device(
-                    id=new_id(),
-                    tenant_id=tenant_id,
-                    hostname=dev["hostname"],
-                    ip_address=dev["ip"],
-                    os_type=dev["os"],
-                    is_active=True,
-                    is_isolated=False,
-                    last_heartbeat=utcnow() - timedelta(minutes=random.randint(1, 30)),  # nosec - demo
-                )
-                db.add(device)
-                device_count += 1
+            # NOTE: We do NOT seed demo devices. Fake devices cause the onboarding
+            # page to show 'connected' before any real agent has connected, which
+            # misleads users into thinking monitoring is working when it isn't.
+            # Demo alerts are kept so the dashboard isn't completely blank.
 
             await db.commit()
-            log.info("AUTO-SEEDED %d demo alerts + %d demo devices for tenant %s", created, device_count, tenant_id)
+            log.info("AUTO-SEEDED %d demo alerts for tenant %s (no demo devices)", created, tenant_id)
 
     except Exception as e:
         log.warning("Auto-seed demo data failed (non-fatal): %s", e)

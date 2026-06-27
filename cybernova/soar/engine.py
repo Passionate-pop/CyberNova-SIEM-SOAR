@@ -659,21 +659,27 @@ class SoarEngine:
         Determine if SOAR should trigger.
         Rules (real-time autonomous):
         1. SOAR is ALWAYS enabled
-        2. Incident must be CONFIRMED
-        3. Triggers on: risk_score >= 80 OR severity in (critical, high)
-           Previously: >= 120. Lowered to catch more threats autonomously
+        2. Auto-confirms incidents from the pipeline (critical/high/risk>=50)
+        3. Triggers on: risk_score >= 50 OR severity in (critical, high)
         """
         if not self.enabled:
             return False
 
-        confirmed = incident.get("confirmed", False)
         risk_score = float(incident.get("risk_score", 0))
         severity = incident.get("severity", "")
+
+        # Auto-confirm: pipeline incidents may not have confirmed=True,
+        # but if severity is critical/high or risk_score >= 50, treat as confirmed
+        confirmed = incident.get("confirmed", False)
+        if not confirmed:
+            if severity in ("critical", "high") or risk_score >= 50:
+                confirmed = True
+                incident["confirmed"] = True
 
         if not confirmed:
             return False
 
-        if risk_score >= 80.0 or severity in ("critical", "high"):
+        if risk_score >= 50.0 or severity in ("critical", "high"):
             return True
 
         return False

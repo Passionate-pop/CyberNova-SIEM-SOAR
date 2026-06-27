@@ -22,6 +22,7 @@ from cybernova.database.postgres.models import Device, Tenant
 from cybernova.database.repository.repositories import DeviceRepository
 from cybernova.audit.service import audit_service
 from cybernova.pipeline.device_processor import device_event_handler
+from cybernova.security.encryption.jwt_handler import get_current_user, CurrentUser
 
 log = logging.getLogger("cybernova.devices")
 
@@ -155,6 +156,33 @@ async def validate_tenant_id(db: AsyncSession, tenant_id: str) -> Optional[Tenan
 
 
 # ── Routes ────────────────────────────────────────────────────────────────
+
+@router.get("/list", summary="List devices for current user's tenant")
+async def list_user_devices(
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """List all devices for the current user's tenant. Does not require admin role."""
+    from sqlalchemy import select
+    result = await db.execute(
+        select(Device).where(Device.tenant_id == user.tenant_id).order_by(Device.hostname)
+    )
+    devices = result.scalars().all()
+    return [
+        {
+            "id": d.id,
+            "hostname": d.hostname,
+            "ip_address": d.ip_address or "",
+            "os_type": d.os_type or "",
+            "status": d.status,
+            "is_isolated": d.is_isolated or False,
+            "last_heartbeat": d.last_heartbeat.isoformat() if d.last_heartbeat else "",
+            "tenant_id": d.tenant_id,
+            "owner_id": d.owner_id or "",
+        }
+        for d in devices
+    ]
+
 
 @router.post("/register", summary="Register new device", response_model=DeviceRegisterResponse)
 async def register_device(
