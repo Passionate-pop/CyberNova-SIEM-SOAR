@@ -87,59 +87,114 @@ export function hasPermission(user: User | null, permission: string): boolean {
   return allowed;
 }
 
-// Get navigation items based on user context
-export function getNavItemsForUser(user: User | null): { id: string; label: string; icon: string }[] {
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ * SINGLE SOURCE OF TRUTH for role-based page access.
+ *
+ * Every component (Sidebar, App.tsx route guard, etc.) MUST use
+ * these functions to determine what a user can see/access.
+ * ═══════════════════════════════════════════════════════════════════
+ */
+
+/** Page IDs shared across ALL roles (individual, staff, admin) */
+const COMMON_PAGES = [
+  'dashboard',
+  'alerts',
+  'incidents',
+  'monitoring',
+  'logs',
+  'response',
+  'threat-intel',
+  'ai-investigation',
+  'mitre',
+  'analytics',
+  'settings',
+] as const;
+
+/** Page IDs ONLY for admin/boss (org control) */
+const ADMIN_ONLY_PAGES = [
+  'devices',
+  'users',
+  'audit-logs',
+  'rate-limits',
+] as const;
+
+/** All possible page IDs */
+const ALL_PAGES = [...COMMON_PAGES, ...ADMIN_ONLY_PAGES] as const;
+
+type PageId = typeof ALL_PAGES[number];
+
+interface NavItem {
+  id: PageId;
+  label: string;
+  icon: string;
+}
+
+/**
+ * Navigation item metadata (icons + labels) for every page.
+ */
+const NAV_META: Record<PageId, { label: string; icon: string }> = {
+  dashboard: { label: 'Dashboard', icon: 'LayoutDashboard' },
+  alerts: { label: 'Alerts', icon: 'AlertTriangle' },
+  incidents: { label: 'Incidents', icon: 'FileSearch' },
+  monitoring: { label: 'Live Monitor', icon: 'Activity' },
+  logs: { label: 'Event Logs', icon: 'ScrollText' },
+  response: { label: 'Response Center', icon: 'Shield' },
+  'threat-intel': { label: 'Threat Intel', icon: 'Globe' },
+  'ai-investigation': { label: 'AI Investigation', icon: 'Brain' },
+  mitre: { label: 'MITRE ATT&CK', icon: 'Crosshair' },
+  analytics: { label: 'Analytics', icon: 'BarChart3' },
+  settings: { label: 'Settings', icon: 'Settings' },
+  devices: { label: 'Devices', icon: 'Monitor' },
+  users: { label: 'Users', icon: 'Users' },
+  'audit-logs': { label: 'Audit Logs', icon: 'ScrollText' },
+  'rate-limits': { label: 'Rate Limits', icon: 'Activity' },
+};
+
+/** Navigation item labels — used by Sidebar.tsx to populate the nav */
+export const NAV_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(NAV_META).map(([id, meta]) => [id, meta.label])
+) as Record<string, string>;
+
+/** Navigation item icons — used by Sidebar.tsx to populate the nav */
+export const NAV_ICONS: Record<string, string> = Object.fromEntries(
+  Object.entries(NAV_META).map(([id, meta]) => [id, meta.icon])
+) as Record<string, string>;
+
+/**
+ * Get the NAVIGATION ITEMS (for sidebar) based on user context.
+ * Returns { id, label, icon } array.
+ * This is used by Sidebar.tsx to draw the nav menu.
+ */
+export function getNavItemsForUser(user: User | null): NavItem[] {
+  const pageIds = getAllowedPageIds(user);
+  return pageIds
+    .map(id => {
+      const meta = NAV_META[id as PageId];
+      if (!meta) return null;
+      return { id: id as PageId, label: meta.label, icon: meta.icon };
+    })
+    .filter((item): item is NavItem => item !== null);
+}
+
+/**
+ * Get the ALLOWED PAGE IDs (for route guarding) based on user context.
+ * This is used by App.tsx to block access to pages the user shouldn't see.
+ *
+ * ROLES:
+ *   Individual — single user protecting their own devices
+ *   Staff      — org member with monitoring/response access, NO management
+ *   Admin/Boss — full org control (devices, users, audit-logs, rate-limits)
+ */
+export function getAllowedPageIds(user: User | null): string[] {
   const purpose = user?.purpose || 'individual';
+  const role = user?.role || 'viewer';
 
-  if (purpose === 'individual') {
-    // Individual users see ALL pages with read-only access
-    return [
-      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-      { id: 'incidents', label: 'Incidents', icon: 'FileSearch' },
-      { id: 'alerts', label: 'Alerts', icon: 'AlertTriangle' },
-      { id: 'monitoring', label: 'Live Monitor', icon: 'Activity' },
-      { id: 'logs', label: 'Event Logs', icon: 'ScrollText' },
-      { id: 'response', label: 'Response Center', icon: 'Shield' },
-      { id: 'threat-intel', label: 'Threat Intel', icon: 'Globe' },
-      { id: 'ai-investigation', label: 'AI Investigation', icon: 'Brain' },
-      { id: 'analytics', label: 'Analytics', icon: 'BarChart3' },
-      { id: 'settings', label: 'Settings', icon: 'Settings' },
-    ];
+  if (purpose === 'organization' && role === 'admin') {
+    // Admin/Boss: common pages + admin-only management pages
+    return [...COMMON_PAGES, ...ADMIN_ONLY_PAGES];
   }
 
-  if (purpose === 'organization') {
-    if (user?.role === 'admin') {
-      return [
-        { id: 'dashboard', label: 'Executive Dashboard', icon: 'LayoutDashboard' },
-        { id: 'devices', label: 'Devices', icon: 'Monitor' },
-        { id: 'alerts', label: 'Alerts', icon: 'AlertTriangle' },
-        { id: 'incidents', label: 'Incidents', icon: 'FileSearch' },
-        { id: 'monitoring', label: 'Live Monitor', icon: 'Activity' },
-        { id: 'logs', label: 'Event Logs', icon: 'ScrollText' },
-        { id: 'response', label: 'Response Center', icon: 'Shield' },
-        { id: 'threat-intel', label: 'Threat Intel', icon: 'Globe' },
-        { id: 'ai-investigation', label: 'AI Investigation', icon: 'Brain' },
-        { id: 'users', label: 'Users', icon: 'Users' },
-        { id: 'analytics', label: 'Analytics', icon: 'BarChart3' },
-        { id: 'audit-logs', label: 'Audit Logs', icon: 'ScrollText' },
-        { id: 'rate-limits', label: 'Rate Limits', icon: 'Activity' },
-        { id: 'settings', label: 'Settings', icon: 'Settings' },
-      ];
-    }
-    // Staff members see all relevant pages but with limited write actions
-    return [
-      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-      { id: 'alerts', label: 'Alerts', icon: 'AlertTriangle' },
-      { id: 'incidents', label: 'Incidents', icon: 'FileSearch' },
-      { id: 'monitoring', label: 'Live Monitor', icon: 'Activity' },
-      { id: 'logs', label: 'Event Logs', icon: 'ScrollText' },
-      { id: 'response', label: 'Response Center', icon: 'Shield' },
-      { id: 'threat-intel', label: 'Threat Intel', icon: 'Globe' },
-      { id: 'ai-investigation', label: 'AI Investigation', icon: 'Brain' },
-      { id: 'analytics', label: 'Analytics', icon: 'BarChart3' },
-      { id: 'settings', label: 'Settings', icon: 'Settings' },
-    ];
-  }
-
-  return [{ id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' }];
+  // Individual & Staff: common pages only (no admin management)
+  return [...COMMON_PAGES];
 }

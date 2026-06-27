@@ -4,6 +4,7 @@ import { useUIStore } from './stores/useUIStore';
 import { Sidebar, type Page } from './components/layout/Sidebar';
 import { TopNavbar } from './components/layout/TopNavbar';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { getAllowedPageIds } from './utils/permissions';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })));
@@ -24,8 +25,7 @@ const SetupPage = lazy(() => import('./pages/SetupPage').then(m => ({ default: m
 const AddDevicePage = lazy(() => import('./pages/AddDevicePage').then(m => ({ default: m.AddDevicePage })));
 const RateLimitDashboard = lazy(() => import('./pages/RateLimitDashboard').then(m => ({ default: m.RateLimitDashboard })));
 const MitrePage = lazy(() => import('./pages/MitrePage').then(m => ({ default: m.MitrePage })));
-import { isApiDown, onApiHealthChange, onAuthCleared } from './services/api';
-import { reconstructUserFromToken } from './services/api';
+import { isApiDown, onApiHealthChange, onAuthCleared, reconstructUserFromToken } from './services/api';
 
 const pageComponents: Record<Page, React.ComponentType> = {
   dashboard: UnifiedDashboard,
@@ -184,13 +184,14 @@ export default function App() {
     );
   }
 
-  const CurrentPageComponent = pageComponents[currentPage];
-  // Use multi-source resolver for purpose/role to handle edge cases
-  // where user object loses these fields (JWT refresh, persist corruption, etc.)
+  // Silently redirect to dashboard if currentPage isn't allowed for this role.
+  // The sidebar already only shows permitted pages, so this is just a safety net
+  // for edge cases like URL manipulation.
   const resolvedPurpose = resolveUserPurpose(user);
   const resolvedRole = resolveUserRole(user);
   const allowedPages = getAllowedPages(resolvedPurpose, resolvedRole);
-  const showPage = allowedPages.includes(currentPage);
+  const safePage = allowedPages.includes(currentPage) ? currentPage : 'dashboard';
+  const CurrentPageComponent = pageComponents[safePage];
 
   return (
     <div className="min-h-screen bg-cyber-bg">
@@ -203,7 +204,7 @@ export default function App() {
       )}
 
       <Sidebar
-        currentPage={currentPage}
+        currentPage={safePage}
         onNavigate={setCurrentPage}
         onLogout={() => {
           localStorage.removeItem('cybernova_device_added');
@@ -224,13 +225,13 @@ export default function App() {
         style={{ marginLeft: sidebarCollapsed ? 68 : 240 }}
       >
         <TopNavbar
-          currentPage={currentPage}
+          currentPage={safePage}
           username={user.username || 'User'}
           role={user.role || 'viewer'}
         />
 
         <main className="p-6">
-          <ErrorBoundary key={currentPage}>
+          <ErrorBoundary key={safePage}>
             <div className="animate-page-enter">
               <Suspense fallback={
                 <div className="flex items-center justify-center h-[40vh]">
@@ -240,22 +241,7 @@ export default function App() {
                   </div>
                 </div>
               }>
-                {showPage ? (
-                  <CurrentPageComponent />
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-                    <div className="w-20 h-20 rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
-                      <span className="text-4xl">🔒</span>
-                    </div>
-                    <h2 className="text-xl font-bold text-cyber-text mb-2">Access Restricted</h2>
-                    <p className="text-cyber-muted max-w-md">
-                      {currentPage === 'dashboard'
-                        ? 'You do not have permission to view the dashboard. Contact your admin for access.'
-                        : `The "${currentPage}" page is not available for your role.`
-                      }
-                    </p>
-                  </div>
-                )}
+                <CurrentPageComponent />
               </Suspense>
             </div>
           </ErrorBoundary>
@@ -320,23 +306,7 @@ function resolveUserRole(user: any): string {
 }
 
 function getAllowedPages(purpose: string, role: string): Page[] {
-  if (purpose === 'individual') {
-    return [
-      'dashboard', 'incidents', 'alerts',
-      'monitoring', 'logs', 'response', 'threat-intel',
-      'ai-investigation', 'mitre', 'analytics', 'settings',
-    ];
-  }
-
-  if (purpose === 'organization') {
-    if (role === 'admin') {
-      return ['dashboard', 'devices', 'users', 'alerts', 'incidents',
-        'monitoring', 'logs', 'response', 'threat-intel', 'ai-investigation',
-        'mitre', 'settings', 'audit-logs', 'analytics', 'rate-limits'];
-    }
-    return ['dashboard', 'alerts', 'incidents',
-      'monitoring', 'logs', 'response', 'threat-intel', 'ai-investigation', 'mitre', 'settings', 'analytics'];
-  }
-
-  return ['dashboard', 'alerts', 'settings'];
+  // Build a minimal user-like object to pass to the centralized function
+  const user = { purpose, role } as any;
+  return getAllowedPageIds(user) as Page[];
 }

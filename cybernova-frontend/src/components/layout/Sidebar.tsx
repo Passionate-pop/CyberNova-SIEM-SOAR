@@ -5,8 +5,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../hooks/useAuth';
-import { hasPermission, PERMISSIONS, type Page } from '../../types';
-import { getNavItemsForUser as getNavFromUtils } from '../../utils/permissions';
+import type { Page } from '../../types';
+import { getNavItemsForUser } from '../../utils/permissions';
 
 export type { Page };
 
@@ -35,58 +35,13 @@ const ICONS: Record<string, React.ReactNode> = {
   Crosshair: <Crosshair size={20} />,
 };
 
-const adminNav: { id: Page; label: string; icon: string; permission?: string }[] = [
-  { id: 'dashboard', label: 'Executive Dashboard', icon: 'LayoutDashboard' },
-  { id: 'devices', label: 'Devices', icon: 'Monitor' },
-  { id: 'alerts', label: 'Alerts', icon: 'AlertTriangle', permission: PERMISSIONS.ALERTS_VIEW },
-  { id: 'incidents', label: 'Incidents', icon: 'FileSearch', permission: PERMISSIONS.INCIDENTS_VIEW },
-  { id: 'monitoring', label: 'Live Monitor', icon: 'Activity', permission: PERMISSIONS.PIPELINE_VIEW },
-  { id: 'response', label: 'Response Center', icon: 'Shield' },
-  { id: 'threat-intel', label: 'Threat Intel', icon: 'Globe' },
-  { id: 'ai-investigation', label: 'AI Investigation', icon: 'Brain' },
-  { id: 'mitre', label: 'MITRE ATT&CK', icon: 'Crosshair' },
-  { id: 'users', label: 'Users', icon: 'Users', permission: PERMISSIONS.USERS_VIEW },
-  { id: 'analytics', label: 'Analytics', icon: 'BarChart3', permission: PERMISSIONS.AUDIT_VIEW },
-  { id: 'logs', label: 'Event Logs', icon: 'ScrollText', permission: PERMISSIONS.PIPELINE_VIEW },
-  { id: 'audit-logs', label: 'Audit Logs', icon: 'ScrollText', permission: PERMISSIONS.AUDIT_VIEW },
-  { id: 'rate-limits', label: 'Rate Limits', icon: 'Activity', permission: PERMISSIONS.PIPELINE_VIEW },
-  { id: 'settings', label: 'Settings', icon: 'Settings', permission: PERMISSIONS.SETTINGS_VIEW },
-];
-
-const staffNav: { id: Page; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-  { id: 'alerts', label: 'Alerts', icon: 'AlertTriangle' },
-  { id: 'incidents', label: 'Incidents', icon: 'FileSearch' },
-  { id: 'monitoring', label: 'Live Monitor', icon: 'Activity' },
-  { id: 'logs', label: 'Event Logs', icon: 'ScrollText' },
-  { id: 'response', label: 'Response Center', icon: 'Shield' },
-  { id: 'threat-intel', label: 'Threat Intel', icon: 'Globe' },
-  { id: 'ai-investigation', label: 'AI Investigation', icon: 'Brain' },
-  { id: 'mitre', label: 'MITRE ATT&CK', icon: 'Crosshair' },
-  { id: 'analytics', label: 'Analytics', icon: 'BarChart3' },
-  { id: 'settings', label: 'Settings', icon: 'Settings' },
-];
-
-const individualNav: { id: Page; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-  { id: 'incidents', label: 'Incidents', icon: 'FileSearch' },
-  { id: 'alerts', label: 'Alerts', icon: 'AlertTriangle' },
-  { id: 'monitoring', label: 'Live Monitor', icon: 'Activity' },
-  { id: 'logs', label: 'Event Logs', icon: 'ScrollText' },
-  { id: 'response', label: 'Response Center', icon: 'Shield' },
-  { id: 'threat-intel', label: 'Threat Intel', icon: 'Globe' },
-  { id: 'ai-investigation', label: 'AI Investigation', icon: 'Brain' },
-  { id: 'mitre', label: 'MITRE ATT&CK', icon: 'Crosshair' },
-  { id: 'analytics', label: 'Analytics', icon: 'BarChart3' },
-  { id: 'settings', label: 'Settings', icon: 'Settings' },
-];
-
-function resolveNavItems(user: any): { id: Page; label: string; icon: string; permission?: string }[] {
-  const navConfig = getNavFromUtils(user);
-  const allItems = [...adminNav, ...staffNav, ...individualNav];
-  return navConfig
-    .map(item => allItems.find(a => a.id === item.id))
-    .filter((item): item is NonNullable<typeof item> => item !== undefined);
+/**
+ * Resolve nav items for a user from the SINGLE source of truth
+ * in permissions.ts. No duplicate nav arrays — all data comes
+ * from getNavItemsForUser().
+ */
+function resolveNavItems(user: any): { id: string; label: string; icon: string }[] {
+  return getNavItemsForUser(user);
 }
 
 function getHeaderInfo(user: any): { title: string; subtitle: string; accentColor: string } {
@@ -120,10 +75,6 @@ export function Sidebar({ currentPage, onNavigate, onLogout, collapsed, onToggle
   const { user } = useAuth();
   
   const navItems = resolveNavItems(user);
-  const filteredNavItems = navItems.filter(item => {
-    if (!item.permission) return true;
-    return hasPermission(user, item.permission);
-  });
   
   const { title: headerTitle, subtitle: headerSubtitle } = getHeaderInfo(user);
 
@@ -153,10 +104,10 @@ export function Sidebar({ currentPage, onNavigate, onLogout, collapsed, onToggle
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <div className="space-y-1">
-          {filteredNavItems.map((item) => (
+          {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => onNavigate(item.id)}
+              onClick={() => onNavigate(item.id as Page)}
               className={cn(
                 'group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
                 currentPage === item.id
