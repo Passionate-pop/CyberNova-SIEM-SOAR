@@ -58,6 +58,10 @@ node_modules/
 cybernova-frontend/node_modules/
 cybernova-frontend/dist/
 frontend-dist/
+web-page/node_modules/
+web-page/out/
+web-page/.next/
+*.tsbuildinfo
 
 # ── Testing & Coverage ───────────────────────────────────────
 .pytest_cache/
