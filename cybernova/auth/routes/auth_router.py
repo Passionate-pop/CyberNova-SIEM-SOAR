@@ -14,14 +14,12 @@ from cybernova.auth.schemas import LoginRequest, RegisterRequest
 from cybernova.auth.services.auth_service import auth_service
 from cybernova.security.rate_limit.limiter import get_limiter
 from cybernova.audit.service import audit_service
+from cybernova.security.encryption.jwt_handler import get_current_user, CurrentUser
 
 log = logging.getLogger("cybernova.auth.router")
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 limiter = get_limiter()
-
-
-from cybernova.security.encryption.jwt_handler import get_current_user, CurrentUser
 
 
 @router.get("/me", summary="Get current user profile")

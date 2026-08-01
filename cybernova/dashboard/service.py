@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Optional
 
-from sqlalchemy import select, func, and_, case
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cybernova.database.postgres.models import (

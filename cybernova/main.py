@@ -618,7 +618,6 @@ async def circuit_breaker_status():
 @app.get("/metrics", tags=["System"])
 async def metrics_endpoint():
     """Prometheus-compatible metrics endpoint (unauthenticated for Prometheus scraping)."""
-    from cybernova.monitoring.metrics import metrics
     pipeline_metrics = await unified_pipeline.get_metrics()
     registry = health_registry.summary()
     lines = [
@@ -651,7 +650,7 @@ async def metrics_endpoint():
     pending = pipeline_metrics.get("pending", {})
     for stage, depth in pending.items():
         lines.append(f"# HELP cybernova_stream_lag Queue depth for {stage}")
-        lines.append(f"# TYPE cybernova_stream_lag gauge")
+        lines.append("# TYPE cybernova_stream_lag gauge")
         lines.append(f"cybernova_stream_lag{{stream=\"{stage}\"}} {depth}")
     return Response(
         content="\n".join(lines) + "\n",

@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
 from cybernova.database.postgres.models import APIKey
-from cybernova.database.postgres.session import get_db
 
 log = logging.getLogger(__name__)
 

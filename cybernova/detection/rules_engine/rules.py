@@ -280,7 +280,7 @@ class PortScanRule(StatefulRule):
         source_ip = event.get("source_ip", "")
         dest_port = event.get("dest_port", 0)
 
-        if not (event_type in ("port_scan", "scan", "network_scan")):
+        if event_type not in ("port_scan", "scan", "network_scan"):
             return None
 
         redis_count = self._redis_count(source_ip, dest_port)

@@ -113,6 +113,8 @@ async def onboarding_diagnostics(
         )
 
     # ── 6. API endpoint info ──
+    # The JWT dependency (get_current_user) already validated the token.
+    token_ok = True
     api_endpoints = {
         "health": "/health",
         "agent_telemetry": "POST /api/v1/agent/telemetry",

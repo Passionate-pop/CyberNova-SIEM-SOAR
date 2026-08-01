@@ -7,9 +7,9 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-log = logging.getLogger("cybernova.dlq")
-
 from cybernova.security.encryption.jwt_handler import get_current_user, CurrentUser
+
+log = logging.getLogger("cybernova.dlq")
 
 router = APIRouter(prefix="/api/v1/admin/dlq", tags=["DLQ Management"])
 
@@ -74,8 +74,6 @@ async def replay_dlq_event(
                 _log.info("[DLQ] Replaying event %s to pipeline", original_id)
 
                 from cybernova.pipeline.queue_manager import queue_manager, QueueName, QueuePriority
-                from cybernova.config.settings import get_settings
-                settings = get_settings()
                 tenant_id = fields.get("tenant_id", "default")
                 await queue_manager.enqueue(
                     QueueName.NORMALIZATION,

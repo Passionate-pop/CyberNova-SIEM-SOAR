@@ -29,6 +29,11 @@ jobs:
           echo "redis-pass-123" > secrets/redis_password.txt
           echo "" > secrets/smtp_password.txt
 
+      - name: Create .env from example (required by docker-compose interpolation)
+        run: |
+          cp .env.example .env
+          sed -i "s/ChangeMe_Postgres_123/postgres-pass-123/; s/ChangeMe_Redis_123/redis-pass-123/" .env
+
       - name: Create Grafana provisioning dirs
         run: |
           mkdir -p monitoring/grafana/datasources monitoring/grafana/dashboards

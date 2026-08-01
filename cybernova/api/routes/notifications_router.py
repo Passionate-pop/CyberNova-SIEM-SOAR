@@ -36,7 +36,7 @@ async def list_notifications(
         (Notification.user_id == user.id) | (Notification.user_id.is_(None)),
     )
     if unread_only:
-        query = query.where(Notification.read == False)
+        query = query.where(Notification.read.is_(False))
     query = query.order_by(Notification.created_at.desc()).limit(limit)
 
     result = await db.execute(query)
@@ -46,7 +46,7 @@ async def list_notifications(
         select(func.count(Notification.id)).where(
             Notification.tenant_id == tenant_id,
             (Notification.user_id == user.id) | (Notification.user_id.is_(None)),
-            Notification.read == False,
+            Notification.read.is_(False),
         )
     )
 
@@ -98,7 +98,7 @@ async def mark_all_read(
         .where(
             Notification.tenant_id == tenant_id,
             ((Notification.user_id == user.id) | (Notification.user_id.is_(None))),
-            Notification.read == False,
+            Notification.read.is_(False),
         )
         .values(read=True)
     )

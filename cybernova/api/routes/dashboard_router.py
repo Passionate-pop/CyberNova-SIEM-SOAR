@@ -646,7 +646,7 @@ async def dashboard_processes(
         return []
     import hashlib
     def _det_hash(val: str, length: int = 4) -> int:
-        return int(hashlib.md5(val.encode()).hexdigest()[:length], 16)
+        return int(hashlib.md5(val.encode(), usedforsecurity=False).hexdigest()[:length], 16)
     return [
         {
             "pid": _det_hash(e.id or "") % 65535 + 1,

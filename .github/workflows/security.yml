@@ -30,7 +30,10 @@ jobs:
         continue-on-error: true
         run: pip-audit -r requirements.txt --desc --ignore-vuln PYSEC-EXAMPLE
       - name: Audit (fail on critical/high)
-        run: pip-audit -r requirements.txt --strict
+        # PYSEC-2026-1325 (ecdsa) has NO upstream fix — python-ecdsa considers the
+        # Minerva side-channel timing attack out of scope ("no planned fix").
+        # Only affects ecdsa.SigningKey.sign_digest(); verification is unaffected.
+        run: pip-audit -r requirements.txt --strict --ignore-vuln PYSEC-2026-1325
 
   sast:
     name: SAST (bandit)

@@ -14,8 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cybernova.database.postgres.session import get_db
-from cybernova.database.postgres.models import NormalizedEvent, Alert, Incident, ResponseAction, RawEvent
-from cybernova.api.websocket import ws_handler
+from cybernova.database.postgres.models import NormalizedEvent, RawEvent
 from cybernova.pipeline import queue_manager
 from cybernova.pipeline.unified_pipeline import unified_pipeline
 from cybernova.pipeline.queue_manager import QueueName
@@ -136,7 +135,6 @@ async def pipeline_action(
     user: CurrentUser = Depends(require_pipeline_manage),
 ):
     """Execute a pipeline action (start, stop, restart, flush)."""
-    import asyncio
     action = body.action.lower()
     
     if action == "start":
@@ -546,7 +544,6 @@ async def pipeline_event_stream(
     Returns an SSE stream that pushes updates as they happen.
     """
     from fastapi.responses import StreamingResponse
-    import asyncio
     
     async def event_generator():
         redis = queue_manager._redis
