@@ -22,7 +22,7 @@ on:
 
   workflow_run:
     workflows: ["Release Pipeline"]
-    branches: [main]
+    branches: [master]
     types:
       - completed
 
