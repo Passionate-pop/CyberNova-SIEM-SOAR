@@ -257,6 +257,7 @@ export interface Device {
   mac_address?: string;
   agent_version?: string;
   is_active?: boolean;
+  is_isolated?: boolean;
   risk_score?: number;
   owner_id?: string;
 }

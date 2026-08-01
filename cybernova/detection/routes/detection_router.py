@@ -175,6 +175,33 @@ async def list_rules(
     return {"rules": rule_engine.list_rules()}
 
 
+@router.patch("/rules/{rule_id}", summary="Update a detection rule")
+async def update_rule(
+    rule_id: str,
+    body: dict,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Update a detection rule's properties (e.g., enable/disable).
+    
+    Example: PATCH /api/v1/detect/rules/suspicious_file  {"enabled": false}
+    
+    Returns the updated rule or 404 if not found.
+    """
+    # Filter to only allowed fields
+    allowed = {"enabled", "severity", "risk_score", "description"}
+    updates = {k: v for k, v in body.items() if k in allowed}
+    
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update. Allowed: enabled, severity, risk_score, description")
+    
+    result = rule_engine.update_rule(rule_id, updates)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Rule '{rule_id}' not found")
+    
+    return result
+
+
 @router.post("/correlate", summary="Correlate alerts into incidents")
 async def correlate(
     window_minutes: int = 15,

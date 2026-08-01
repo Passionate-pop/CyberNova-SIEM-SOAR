@@ -13,7 +13,6 @@ Uses the shared `client` fixture from tests/e2e/conftest.py.
 """
 from __future__ import annotations
 
-import httpx
 import pytest
 
 pytestmark = pytest.mark.asyncio
@@ -225,18 +224,6 @@ class TestAttackSimulation:
         resp = await client.post("/api/v1/pipeline/simulate-attack",
                                  headers=_auth(token))
         assert resp.status_code in (200, 403)
-
-    async def test_inject_soar_actions(self, client):
-        token = await _register_and_get_token(client, "soar_inject", "soar@test.com")
-        resp = await client.post("/api/v1/pipeline/test-soar-actions",
-                                 headers=_auth(token))
-        assert resp.status_code in (200, 403)
-
-    async def test_seed_demo_data(self, client):
-        token = await _register_and_get_token(client, "seed_admin", "seed@test.com")
-        resp = await client.post("/api/v1/dashboard/seed", headers=_auth(token))
-        assert resp.status_code in (200, 403)
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Rate Limiting on Testing Endpoints

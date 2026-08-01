@@ -112,7 +112,7 @@
 | Page | Route | Components | API Dependencies |
 |------|-------|------------|------------------|
 | **IndividualDashboard** | `/` | StatsGrid, AlertTimeline, ThreatMap | `/dashboard/summary`, `/dashboard/timeseries` |
-| **AdminDashboard** | `/admin` | Same + device mgmt, simulateAttack | `/admin/devices`, `/dashboard/alerts` |
+| **AdminDashboard** | `/admin` | Same + device mgmt, pipeline ingestion | `/admin/devices`, `/dashboard/alerts` |
 | **StaffDashboard** | `/staff` | Team overview, system health | `/dashboard/executive/metrics` |
 | **AlertsPage** | `/alerts` | AlertList, SeverityBadge, ConfirmDialog | `/dashboard/alerts`, `/detect/rules` |
 | **DevicesPage** | `/admin/devices` | DeviceList, BulkActionBar | `/admin/devices` |

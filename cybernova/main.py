@@ -81,7 +81,6 @@ soar_router = _safe_import("cybernova.response.routes.soar_actions", "router")
 automation_router = _safe_import("cybernova.response.automation.router", "router")
 playbook_routes_router = _safe_import("cybernova.api.routes.playbook_routes", "router")
 agent_ingest_router = _safe_import("cybernova.ingestion.routes.agent_ingest", "router")
-demo_router = _safe_import("cybernova.api.routes.demo", "router")
 notifications_router = _safe_import("cybernova.api.routes.notifications_router", "router")
 agent_download_router = _safe_import("cybernova.api.routes.agent_download", "router")
 agent_auth_router = _safe_import("cybernova.api.routes.agent_auth", "router")
@@ -186,10 +185,7 @@ async def lifespan(app: FastAPI):
     await lifecycle_startup.startup_device_processor(_is_leader, heartbeat_monitor)
     await lifecycle_startup.startup_dlq_worker(_is_leader, heartbeat_monitor)
 
-    # --- Phase 10: Seeding ---
-    await lifecycle_startup.startup_seeding(_is_leader)
-
-    # --- Phase 11: Background Services ---
+    # --- Phase 10: Background Services ---
     await lifecycle_startup.startup_ha_health_monitor(heartbeat_monitor)
     await lifecycle_startup.startup_backup(_is_leader, heartbeat_monitor)
     await lifecycle_startup.startup_marketplace()
@@ -380,7 +376,7 @@ for _router in [
     response_router, datalake_router, ai_network_router, dashboard_router,
     pipeline_router, audit_router, org_router, admin_devices_router,
     policy_admin_router, dlq_router, metrics_router, analytics_router,
-    setup_router, soar_router, agent_ingest_router, demo_router,
+    setup_router, soar_router, agent_ingest_router,
     agent_auth_router, agent_heartbeat_router, agent_telemetry_router, agent_commands_router,
     agent_update_router, agent_download_router, noise_router,
     notifications_router, agent_receiver_router,

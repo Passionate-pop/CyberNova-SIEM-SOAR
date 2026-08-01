@@ -408,14 +408,17 @@ class HostAgent:
     ]
 
     def __init__(self, backend_url: str, username: str = "", password: str = "",
-                 tenant_id: str = "default"):
+                 tenant_id: str = "default", device_token: str = ""):
         self.backend_url = backend_url.rstrip('/')
         self.username = username or os.environ.get("AGENT_USERNAME", "")
         self.password = password or os.environ.get("AGENT_PASSWORD", "")
+        self.device_token = device_token or os.environ.get("CYBERNOVA_DEVICE_TOKEN", "")
         if not self.username or not self.password:
-            raise ValueError(
-                "Username and password required — set AGENT_USERNAME and AGENT_PASSWORD env vars"
-            )
+            if not self.device_token:
+                raise ValueError(
+                    "Username/password OR device_token required — set AGENT_USERNAME/AGENT_PASSWORD "
+                    "env vars or CYBERNOVA_DEVICE_TOKEN"
+                )
         self.hostname = socket.gethostname()
         self._running = False
         self._auth_token: Optional[str] = None
@@ -665,6 +668,14 @@ class HostAgent:
     # ════════════════════════════════════════════════════════════════════
 
     async def _authenticate(self):
+        # If we have a device token, use it directly as Bearer token (no login needed)
+        if self.device_token:
+            self._auth_token = self.device_token
+            self._token_expires_at = time.time() + 86400 * 365  # Device tokens don't expire
+            log.info("Authenticated via device token")
+            return
+
+        # Fallback: login with username/password
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(
@@ -2676,13 +2687,36 @@ async def main():
     parser.add_argument("--username", default="admin")
     parser.add_argument("--password", default="admin123")
     parser.add_argument("--tenant", default="default")
+    parser.add_argument("--config", default="", help="Path to agent_config.json (reads api_url and token)")
+    parser.add_argument("--token", default="", help="Device token for direct Bearer auth")
     args = parser.parse_args()
 
+    backend_url = args.backend
+    device_token = args.token
+    username = args.username
+    password = args.password
+
+    # If --config is provided, read config file for backend URL and device token
+    if args.config:
+        try:
+            with open(args.config, "r") as f:
+                config = json.load(f)
+            if "api_url" in config:
+                backend_url = config["api_url"]
+                log.info("Config: backend URL = %s", backend_url)
+            if "token" in config and not device_token:
+                device_token = config["token"]
+                log.info("Config: device token loaded from config")
+                os.environ["CYBERNOVA_DEVICE_TOKEN"] = device_token
+        except Exception as e:
+            log.error("Failed to read config file %s: %s", args.config, e)
+
     agent = HostAgent(
-        backend_url=args.backend,
-        username=args.username,
-        password=args.password,
-        tenant_id=args.tenant
+        backend_url=backend_url,
+        username=username,
+        password=password,
+        tenant_id=args.tenant,
+        device_token=device_token
     )
 
     try:

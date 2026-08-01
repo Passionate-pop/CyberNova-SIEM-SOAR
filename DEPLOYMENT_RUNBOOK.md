@@ -63,7 +63,7 @@ curl -X POST http://localhost:8000/api/v1/setup/admin \
 
 ```bash
 # Run the full verification
-python scripts/attack_sim.py
+# Real attack events flow through ingestion pipeline automatically
 
 # Run the pipeline demo
 python scripts/full_pipeline_demo.py

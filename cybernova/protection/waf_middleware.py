@@ -27,10 +27,16 @@ SKIP_PREFIXES = frozenset({
     "/api/v1/agent/",  # Agent telemetry/heartbeat — agents send system data, not user input
     "/api/v1/devices/",  # Device management — internal API, no user-supplied attack surface
     "/api/v1/diagnostics/",  # Diagnostics endpoints
+    # Detection action endpoints — snooze/mark-safe/whitelist/escalate are authenticated
+    # internal actions on existing alerts/incidents, not user data submission
+    "/api/v1/detect/alerts/",
+    "/api/v1/detect/whitelist",
+    "/api/v1/detect/incidents/",
     # Dashboard read-only paths (specific GET endpoints only — NOT the broad prefix)
     "/api/v1/dashboard/summary",
     "/api/v1/dashboard/alerts",
     "/api/v1/dashboard/incidents",
+    "/api/v1/notifications",
     "/api/v1/dashboard/logs",
     "/api/v1/dashboard/threat-intel",
     "/api/v1/dashboard/global-feed",

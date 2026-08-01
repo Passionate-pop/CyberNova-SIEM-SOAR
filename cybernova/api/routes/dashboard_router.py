@@ -197,45 +197,6 @@ async def dashboard_incidents(
     ]
 
 
-@router.post("/seed", summary="Seed demo data")
-async def seed_demo(
-    db: AsyncSession = Depends(get_db),
-    user: CurrentUser = Depends(require_dashboard_view),
-    tenant_id: str = Depends(get_tenant_id),
-):
-    from cybernova.core.utils.helpers import new_id, utcnow
-    import random  # nosec - demo data seeding, not security-critical
-
-    sample_alerts = [
-        {"rule": "failed_login", "severity": "high", "desc": "Multiple failed login attempts detected from 192.168.1.105", "ip": "192.168.1.105", "host": "WS-ADMIN01"},
-        {"rule": "malicious_process", "severity": "critical", "desc": "Suspicious process mimikatz.exe executed on domain controller", "ip": "10.0.0.5", "host": "DC-PRIMARY"},
-        {"rule": "external_connection", "severity": "high", "desc": "Outbound connection to known C2 server 45.33.32.156", "ip": "45.33.32.156", "host": "WS-FINANCE03"},
-        {"rule": "privilege_escalation", "severity": "critical", "desc": "Unauthorized privilege escalation attempt by user jdoe", "ip": "10.0.0.22", "host": "WS-DEV07"},
-        {"rule": "data_exfiltration", "severity": "high", "desc": "Large data transfer to external IP detected", "ip": "203.0.113.50", "host": "WS-HR02"},
-        {"rule": "encoded_powershell", "severity": "critical", "desc": "Base64 encoded PowerShell execution detected", "ip": "10.0.0.44", "host": "WS-SALES01"},
-    ]
-
-    created = 0
-    for sample in random.sample(sample_alerts, min(4, len(sample_alerts))):  # nosec - demo data
-        hours_ago = random.randint(0, 48)  # nosec - demo data
-        alert = Alert(
-            id=new_id(),
-            tenant_id=tenant_id,
-            rule_name=sample["rule"],
-            severity=sample["severity"],
-            risk_score={"critical": 95, "high": 75}.get(sample["severity"], 50),
-            description=sample["desc"],
-            status="new",
-            extra_data={"source_ip": sample["ip"], "hostname": sample["host"]},
-            created_at=utcnow() - timedelta(hours=hours_ago),
-        )
-        db.add(alert)
-        created += 1
-
-    await db.commit()
-    return {"status": "ok", "message": f"Seeded {created} demo alerts", "created": created}
-
-
 @router.get("/logs", summary="System logs")
 async def dashboard_logs(
     limit: int = Query(50, le=200),

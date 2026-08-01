@@ -75,8 +75,8 @@ services:
 
   nginx:
     ports:
-      - "443:443"      # HTTPS only in production
-      - "8888:80"       # HTTP (health checks / redirect to HTTPS)
+      - "443:443"      # HTTPS
+      - "8080:80"       # Single entry point (CyberNova UI, API, agent scripts, marketing)
     deploy:
       resources:
         limits:

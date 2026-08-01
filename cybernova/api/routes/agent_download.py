@@ -65,9 +65,28 @@ def _find_binaries(base_dir: Path) -> list[dict]:
     return binaries
 
 
-@router.get("/agent.ps1", response_class=PlainTextResponse, summary="Download Windows agent script")
+@router.get("/agent.ps1", response_class=PlainTextResponse, summary="Download Windows agent installer (deploys Python agent)")
 async def get_windows_agent():
     return PlainTextResponse(WINDOWS_AGENT.strip())
+
+
+@router.get("/agent.py", response_class=PlainTextResponse, summary="Download Python host agent")
+async def get_python_agent():
+    # Try multiple locations for host_agent.py
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent.parent / "host_agent.py",
+        Path(__file__).resolve().parent.parent.parent / "host_agent.py",
+        Path(__file__).resolve().parent.parent / "host_agent.py",
+        Path("host_agent.py"),
+    ]
+    agent_path = None
+    for p in candidates:
+        if p.exists():
+            agent_path = p
+            break
+    if not agent_path:
+        raise HTTPException(status_code=404, detail="host_agent.py not found on server")
+    return PlainTextResponse(agent_path.read_text(encoding="utf-8"))
 
 
 @router.get("/agent.sh", response_class=PlainTextResponse, summary="Download Linux agent script")
@@ -176,26 +195,32 @@ async def _serve_binary(filename: str) -> FileResponse:
     )
 
 
-WINDOWS_AGENT = r"""# CyberNova Host Defender - Windows
-# Install:  $env:CYBERNOVA_API_URL="http://SERVER:8888"; irm http://SERVER:8888/agent.ps1 | iex
-# Manual:   powershell -ExecutionPolicy Bypass -File "C:\Program Files\CyberNova\hostdefender.ps1"
+WINDOWS_AGENT = r"""# CyberNova Host Defender - Windows (Python Agent Installer)
+# Install:  $env:CYBERNOVA_API_URL="http://SERVER:8080"; $env:CYBERNOVA_TOKEN="jwt-token"; irm http://SERVER:8080/agent.ps1 | iex
+# This installer deploys the full Python host_agent.py with:
+#   - Real-time file monitoring, process detection, driver monitoring
+#   - Registry, WMI, firewall, boot config monitoring
+#   - Auto-start on boot (hidden — no terminal window via pythonw.exe)
+#   - Immediate device registration with backend
 
-$API_URL = if ($env:CYBERNOVA_API_URL) { $env:CYBERNOVA_API_URL } else { "http://localhost:8888" }
+$API_URL = if ($env:CYBERNOVA_API_URL) { $env:CYBERNOVA_API_URL } else { "http://localhost:8080" }
+$TOKEN = $env:CYBERNOVA_TOKEN
 $INSTALL_DIR = "$env:ProgramFiles\CyberNova"
 $CONFIG_FILE = "$INSTALL_DIR\agent_config.json"
-$AGENT_FILE = "$INSTALL_DIR\hostdefender.ps1"
+$AGENT_FILE = "$INSTALL_DIR\host_agent.py"
 $LOG_DIR = "$INSTALL_DIR\logs"
 $LOG_FILE = "$LOG_DIR\agent.log"
 
 # ==================================================
-#  INSTALL MODE -- runs when piped via iex ($PSScriptRoot is empty)
+#  INSTALL MODE -- runs when piped via iex
 # ==================================================
 if ([string]::IsNullOrEmpty($PSScriptRoot)) {
 
     $ErrorActionPreference = "Stop"
 
     Write-Host "`n  =========================================="
-    Write-Host "  CyberNova - Security Agent Installer"
+    Write-Host "  CyberNova - Full Security Agent Installer"
+    Write-Host "  (Python-based with real-time monitoring)"
     Write-Host "  ==========================================`n"
 
     $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -208,92 +233,169 @@ if ([string]::IsNullOrEmpty($PSScriptRoot)) {
     }
 
     # Step 1: Create directory
-    Write-Host "  [1/5] Creating install directory..." -ForegroundColor White
+    Write-Host "  [1/7] Creating install directory..." -ForegroundColor White
     New-Item -ItemType Directory -Path $INSTALL_DIR -Force | Out-Null
     New-Item -ItemType Directory -Path $LOG_DIR -Force | Out-Null
     Write-Host "        OK  $INSTALL_DIR" -ForegroundColor Green
 
-    # Step 2: Download agent
-    Write-Host "  [2/5] Saving agent..." -ForegroundColor White
-    $dlHeaders = @{}
-    if ($env:CYBERNOVA_API_KEY) { $dlHeaders["X-API-Key"] = $env:CYBERNOVA_API_KEY }
-    Invoke-WebRequest -Uri "$API_URL/agent.ps1" -OutFile $AGENT_FILE -Headers $dlHeaders -TimeoutSec 30 -UseBasicParsing
-    if (-not (Test-Path $AGENT_FILE)) {
-        Write-Host "        FAILED: agent file not saved" -ForegroundColor Red
+    # Step 2: Check Python — use cmd /c to avoid PowerShell's NativeCommandError with 2>&1
+    Write-Host "  [2/7] Checking Python..." -ForegroundColor White
+    $python = $null
+    foreach ($cmd in @("python", "python3", "py")) {
+        try {
+            $ver = cmd /c "$cmd --version 2>&1"
+            if ($ver -match "Python 3\.") {
+                $python = $cmd
+                Write-Host "        OK  $ver ($cmd)" -ForegroundColor Green
+                break
+            }
+        } catch {}
+    }
+    if (-not $python) {
+        Write-Host "        ERROR: Python 3 not found!" -ForegroundColor Red
+        Write-Host "        Install Python 3.8+ from https://python.org" -ForegroundColor Yellow
         return
     }
-    Write-Host "        OK  $AGENT_FILE" -ForegroundColor Green
 
-    # Step 3: Save config
-    Write-Host "  [3/5] Saving configuration..." -ForegroundColor White
-    $cfg = @{ api_url = $API_URL; installed_at = (Get-Date).ToString("o") }
-    if ($env:CYBERNOVA_TOKEN) { $cfg["token"] = $env:CYBERNOVA_TOKEN }
+    # Step 3: Install Python dependencies
+    Write-Host "  [3/7] Installing Python dependencies..." -ForegroundColor White
+    
+    function Invoke-PipInstall {
+        param([string[]]$ExtraArgs)
+        $argStr = ""
+        if ($ExtraArgs.Length -gt 0) { $argStr = " $($ExtraArgs -join ' ')" }
+        $fullCmd = "$python -m pip install httpx$argStr"
+        $output = cmd /c "$fullCmd 2>&1"
+        $exitCode = $LASTEXITCODE
+        $text = $output -join "`n"
+        return @{ ExitCode = $exitCode; Output = $text }
+    }
+    
+    $result = Invoke-PipInstall @()
+    if ($result.ExitCode -eq 0) {
+        Write-Host "        OK  httpx installed" -ForegroundColor Green
+    } else {
+        Write-Host "        WARNING: pip install failed (exit code: $($result.ExitCode))" -ForegroundColor Yellow
+        if ($result.Output) { Write-Host "        $($result.Output)" -ForegroundColor Gray }
+        cmd /c "$python -m pip install --upgrade pip --quiet 2>&1" | Out-Null
+        $result2 = Invoke-PipInstall @("--user")
+        if ($result2.ExitCode -eq 0) {
+            Write-Host "        OK  httpx installed (user mode)" -ForegroundColor Green
+        } else {
+            Write-Host "        WARNING: pip install failed entirely." -ForegroundColor Yellow
+            Write-Host "        The agent needs httpx for API communication." -ForegroundColor Yellow
+            Write-Host "        Fix: Run '$python -m pip install httpx' manually, then re-run this installer." -ForegroundColor Yellow
+            if (-not (Read-Host "`n  Continue installation anyway? [y/N]") -match '^[yY]') {
+                return
+            }
+        }
+    }
+
+    # Step 4: Download host_agent.py
+    Write-Host "  [4/7] Downloading full security agent..." -ForegroundColor White
+    $dlHeaders = @{}
+    if ($env:CYBERNOVA_API_KEY) { $dlHeaders["X-API-Key"] = $env:CYBERNOVA_API_KEY }
+    try {
+        Invoke-WebRequest -Uri "$API_URL/agent.py" -OutFile $AGENT_FILE -Headers $dlHeaders -TimeoutSec 30 -UseBasicParsing
+        if (-not (Test-Path $AGENT_FILE) -or (Get-Item $AGENT_FILE).Length -lt 1000) {
+            throw "Agent file too small or missing"
+        }
+        Write-Host "        OK  host_agent.py ($([math]::Round((Get-Item $AGENT_FILE).Length / 1KB)) KB)" -ForegroundColor Green
+    } catch {
+        Write-Host "        FAILED to download agent: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "        Make sure the CyberNova backend is running at $API_URL" -ForegroundColor Yellow
+        return
+    }
+
+    # Step 5: Save config with token (from CYBERNOVA_TOKEN env var)
+    Write-Host "  [5/7] Saving configuration..." -ForegroundColor White
+    $cfg = @{
+        api_url = $API_URL
+        installed_at = (Get-Date).ToString("o")
+        agent_version = "3.0.0"
+    }
+    # Save JWT token if provided (from onboarding page)
+    if ($TOKEN) {
+        $cfg["token"] = $TOKEN
+        Write-Host "        Using CYBERNOVA_TOKEN for authentication" -ForegroundColor Green
+    } else {
+        # Fallback: prompt for credentials
+        Write-Host "" -ForegroundColor White
+        Write-Host "  No CYBERNOVA_TOKEN provided." -ForegroundColor Yellow
+        Write-Host "  Enter credentials for the agent to authenticate (or get a token from the onboarding page):" -ForegroundColor Cyan
+        $cfg["username"] = Read-Host "  Username"
+        $securePass = Read-Host "  Password" -AsSecureString
+        $cfg["password"] = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePass))
+    }
     $cfg | ConvertTo-Json | Set-Content -Path $CONFIG_FILE -Force
     Write-Host "        OK" -ForegroundColor Green
 
-    # Step 4: Desktop shortcut
-    Write-Host "  [4/5] Creating desktop shortcut..." -ForegroundColor White
-    try {
-        $shell = New-Object -ComObject WScript.Shell
-        $lnk = $shell.CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\CyberNova Agent.lnk")
-        $lnk.TargetPath = "powershell.exe"
-        $lnk.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`""
-        $lnk.Description = "CyberNova Security Agent"
-        $lnk.IconLocation = "shell32.dll,47"
-        $lnk.Save()
-        Write-Host "        OK" -ForegroundColor Green
-    } catch {
-        Write-Host "        Warning: shortcut failed (non-critical)" -ForegroundColor Yellow
-    }
-
-    # Connectivity test
-    Write-Host "`n  Testing connectivity..." -ForegroundColor White
-    try {
-        $r = Invoke-RestMethod -Uri "$API_URL/health" -TimeoutSec 10
-        if ($r.status -eq "healthy") {
-            Write-Host "        Backend: healthy" -ForegroundColor Green
-        } else {
-            Write-Host "        Backend: $($r.status)" -ForegroundColor Yellow
+    # Step 6: Register device with backend NOW (instant registration)
+    Write-Host "  [6/7] Registering device with backend..." -ForegroundColor White
+    if ($TOKEN) {
+        try {
+            $hostname = $env:COMPUTERNAME
+            $telemetryBody = @{
+                system = @{
+                    hostname = $hostname
+                    os_type = "windows"
+                    os_version = ""
+                    agent_version = "3.0.0"
+                }
+                heartbeat_interval = 30
+                sequence_number = 1
+                timestamp = (Get-Date).ToString("o")
+            } | ConvertTo-Json -Depth 5
+            
+            $telemetryResp = Invoke-RestMethod `
+                -Uri "$API_URL/api/v1/agent/telemetry" `
+                -Method Post `
+                -Body $telemetryBody `
+                -ContentType "application/json" `
+                -Headers @{ Authorization = "Bearer $TOKEN" } `
+                -TimeoutSec 10
+            
+            if ($telemetryResp.device_registered) {
+                Write-Host "        OK  Device registered: $hostname (ID: $($telemetryResp.device_id))" -ForegroundColor Green
+                # Save the device token for future auth
+                if ($telemetryResp.device_token) {
+                    $cfg["token"] = $telemetryResp.device_token
+                    $cfg | ConvertTo-Json | Set-Content -Path $CONFIG_FILE -Force
+                    Write-Host "        OK  Device token saved for ongoing auth" -ForegroundColor Green
+                }
+            } else {
+                Write-Host "        OK  Device already registered: $hostname (ID: $($telemetryResp.device_id))" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "        WARNING: Registration failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "        Agent will register on next heartbeat" -ForegroundColor Yellow
         }
-    } catch {
-        Write-Host "        WARNING: not reachable at $API_URL" -ForegroundColor Yellow
+    } else {
+        Write-Host "        Skipped (no CYBERNOVA_TOKEN) — agent will register on startup" -ForegroundColor Yellow
     }
 
-    # Telemetry test — run BEFORE starting the scheduled task so device_token
-    # is saved to config before the background agent starts.
-    Write-Host "  Testing telemetry..." -ForegroundColor White
-    try {
-        $body = @{
-            system = @{ hostname = $env:COMPUTERNAME; os_type = "windows"; agent_version = "2.0.0"; cpu_usage = 0; memory_usage = 0 }
-            heartbeat_interval = 5
-            sequence_number = 0
-            timestamp = (Get-Date).ToString("o")
-        } | ConvertTo-Json -Depth 5 -Compress
-        $h = @{ "Content-Type" = "application/json" }
-        if ($env:CYBERNOVA_TOKEN) { $h["Authorization"] = "Bearer " + $env:CYBERNOVA_TOKEN }
-        $resp = Invoke-RestMethod -Uri "$API_URL/api/v1/agent/telemetry" -Method POST -Body $body -Headers $h -TimeoutSec 10
-        Write-Host "        OK - device_id=$($resp.device_id) registered=$($resp.device_registered)" -ForegroundColor Green
-        if ($resp.device_token) {
-            Write-Host "        Saving device token to config..." -ForegroundColor Green
-            try {
-                $saved = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
-                $saved.token = $resp.device_token
-                $saved | ConvertTo-Json -Depth 5 | Set-Content -Path $CONFIG_FILE -Force
-                Write-Host "        Device token saved" -ForegroundColor Green
-            } catch {}
-        }
-    } catch {
-        Write-Host "        WARNING: telemetry failed" -ForegroundColor Yellow
-    }
-
-    # Step 5: Register service — STARTED AFTER config has the device_token
-    Write-Host "  [5/5] Registering auto-start service..." -ForegroundColor White
+    # Step 7: Register scheduled task (uses pythonw.exe for NO terminal window)
+    Write-Host "  [7/7] Registering auto-start service (hidden)..." -ForegroundColor White
     $taskName = "CyberNova-HostDefender"
     $taskOk = $false
     try {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-            -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`"" `
+        
+        # Resolve pythonw.exe (windowless Python) to prevent terminal popups
+        $pyPath = (Get-Command $python).Source
+        $pyDir = Split-Path $pyPath -Parent
+        $pywExe = Join-Path $pyDir "pythonw.exe"
+        if (Test-Path $pywExe) {
+            $executePath = $pywExe
+            Write-Host "        Using pythonw.exe (no terminal window)" -ForegroundColor Green
+        } else {
+            $executePath = $pyPath
+            Write-Host "        WARNING: pythonw.exe not found, using python.exe (may flash terminal)" -ForegroundColor Yellow
+        }
+        
+        $action = New-ScheduledTaskAction -Execute $executePath `
+            -Argument "`"$AGENT_FILE`" --config `"$CONFIG_FILE`" --backend `"$API_URL`"" `
             -WorkingDirectory $INSTALL_DIR
         $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
@@ -306,14 +408,14 @@ if ([string]::IsNullOrEmpty($PSScriptRoot)) {
                 New-ScheduledTaskTrigger -AtLogOn
             ) `
             -Principal $principal -Settings $settings `
-            -Description "CyberNova Host Defender - 24/7 security monitoring" -Force
+            -Description "CyberNova Host Defender v3 - Full server monitoring (Python, hidden)" -Force
         Start-Sleep -Seconds 1
         Start-ScheduledTask -TaskName $taskName
         Start-Sleep -Seconds 3
         $info = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
         if ($info -and $info.State -eq "Running") {
             $taskOk = $true
-            Write-Host "        OK (scheduled task running)" -ForegroundColor Green
+            Write-Host "        OK (scheduled task running, hidden)" -ForegroundColor Green
         } else {
             Write-Host "        Warning: task state=$($info.State)" -ForegroundColor Yellow
         }
@@ -323,17 +425,20 @@ if ([string]::IsNullOrEmpty($PSScriptRoot)) {
 
     # Fallback: start agent directly if scheduled task failed
     if (-not $taskOk) {
-        Write-Host "        Starting agent in background..." -ForegroundColor Yellow
+        Write-Host "        Starting agent in background (hidden)..." -ForegroundColor Yellow
         try {
-            $proc = Start-Process -FilePath "powershell.exe" `
-                -ArgumentList "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$AGENT_FILE`"" `
+            $env:AGENT_USERNAME = $username
+            $env:AGENT_PASSWORD = $password
+            $env:CYBERNOVA_API_URL = $API_URL
+            $proc = Start-Process -FilePath $python `
+                -ArgumentList "`"$AGENT_FILE`"" `
                 -WindowStyle Hidden -PassThru
-            Start-Sleep -Seconds 3
+            Start-Sleep -Seconds 5
             $proc.Refresh()
             if ($proc.HasExited) {
-                Write-Host "        Warning: agent exited. Run manually: powershell -ExecutionPolicy Bypass -File `"$AGENT_FILE`"" -ForegroundColor Yellow
+                Write-Host "        Warning: agent exited early. Check logs at $LOG_FILE" -ForegroundColor Yellow
             } else {
-                Write-Host "        OK (background PID=$($proc.Id))" -ForegroundColor Green
+                Write-Host "        OK (background PID=$($proc.Id), hidden)" -ForegroundColor Green
             }
         } catch {
             Write-Host "        Warning: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -341,10 +446,14 @@ if ([string]::IsNullOrEmpty($PSScriptRoot)) {
     }
 
     Write-Host "`n  ============================================"
-    Write-Host "  CyberNova Agent installed!"
+    Write-Host "  CyberNova Full Agent installed!"
     Write-Host "  ============================================"
     Write-Host ""
     Write-Host "  Installed:  $INSTALL_DIR"
+    Write-Host "  Agent:      host_agent.py (Python)"
+    Write-Host "  Auto-start: Yes (hidden — no terminal window)"
+    Write-Host "  Monitoring: File creation, processes, drivers, registry,"
+    Write-Host "              WMI, firewall, boot config, services, USB"
     Write-Host "  API:        $API_URL"
     Write-Host ""
     return
@@ -352,239 +461,16 @@ if ([string]::IsNullOrEmpty($PSScriptRoot)) {
 } else {
 
 # ==================================================
-#  MONITOR MODE -- background service
+#  MONITOR MODE -- delegated to host_agent.py
 # ==================================================
-$ErrorActionPreference = "SilentlyContinue"
-
-# Read config
-if (Test-Path $CONFIG_FILE) {
-    try {
-        $cfg = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
-        if ($cfg.api_url) { $API_URL = $cfg.api_url }
-    } catch {}
-}
-
-# Read token from env or config
-$TOKEN = $env:CYBERNOVA_TOKEN
-if (-not $TOKEN -and (Test-Path $CONFIG_FILE)) {
-    try {
-        $cfg = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
-        if ($cfg.token) { $TOKEN = $cfg.token }
-    } catch {}
-}
-
-$headers = @{ "Content-Type" = "application/json" }
-if ($TOKEN) { $headers["Authorization"] = "Bearer " + $TOKEN }
-
-$INTERVAL = 5
-
-# Helper: log to file
-function Write-Log([string]$msg) {
-    try {
-        $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        Add-Content -Path $LOG_FILE -Value "[$ts] $msg" -ErrorAction SilentlyContinue
-    } catch {}
-}
-
-Write-Log "Starting - host=$env:COMPUTERNAME api=$API_URL"
-
-# Gather system info (each wrapped to prevent crash)
-$hn = try { $env:COMPUTERNAME } catch { "unknown" }
-$osCap = try { (Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue).Caption } catch { "Windows" }
-$osVer = try { (Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue).Version } catch { "" }
-$myIp = try { (Get-NetIPAddress -AddressFamily IPv4 -EA SilentlyContinue | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" } | Select-Object -First 1).IPAddress } catch { "127.0.0.1" }
-$myIps = try { @(Get-NetIPAddress -AddressFamily IPv4 -EA SilentlyContinue | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" } | ForEach-Object { $_.IPAddress }) } catch { @() }
-$myMacs = try { @(Get-NetAdapter -EA SilentlyContinue | Where-Object { $_.Status -eq "Up" } | ForEach-Object { $_.MacAddress }) } catch { @() }
-$buildNum = try { (Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue).BuildNumber } catch { "" }
-
-$hostInfo = @{
-    hostname = $hn
-    os_type = "windows"
-    os_version = $osVer
-    ip_addresses = $myIps
-    mac_addresses = $myMacs
-    kernel_version = $buildNum
-    agent_version = "2.0.0"
-}
-
-$script:seq = 0
-$script:knownUsb = @{}
-$script:fimBaseline = @{}
-$script:regBaseline = @{}
-$script:seenFiles = @{}
-
-function Send-Telemetry([hashtable]$extra) {
-    $script:seq++
-    $cpu = try { (Get-CimInstance Win32_Processor -EA SilentlyContinue | Measure-Object -Property LoadPercentage -Average).Average } catch { 0 }
-    $mem = try { $os = Get-CimInstance Win32_OperatingSystem -EA SilentlyContinue; [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1) } catch { 0 }
-    $hostInfo["cpu_usage"] = $cpu
-    $hostInfo["memory_usage"] = $mem
-    $body = @{
-        system = $hostInfo
-        heartbeat_interval = $INTERVAL
-        sequence_number = $script:seq
-        timestamp = (Get-Date).ToString("o")
-    }
-    if ($extra -and $extra.Count -gt 0) { $body += $extra }
-    try {
-        $json = $body | ConvertTo-Json -Depth 5 -Compress
-        $resp = Invoke-RestMethod -Uri "$API_URL/api/v1/agent/telemetry" -Method POST -Body $json -Headers $headers -TimeoutSec 10
-        Write-Log "Telemetry OK seq=$($script:seq) device=$($resp.device_id)"
-        if ($resp.device_token) {
-            $TOKEN = $resp.device_token
-            $headers["Authorization"] = "Bearer " + $TOKEN
-            try {
-                $c = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
-                $c.token = $resp.device_token
-                $c | ConvertTo-Json | Set-Content -Path $CONFIG_FILE -Force
-                Write-Log "Device token upgraded"
-            } catch {}
-        }
-    } catch {
-        Write-Log "Telemetry FAILED: $($_.Exception.Message)"
-    }
-}
-
-function Send-SecurityEvent([string]$type, [string]$msg, [string]$sev, [hashtable]$extra) {
-    $body = @{
-        source = "agent"
-        hostname = $hn
-        event_type = $type
-        message = $msg
-        timestamp = (Get-Date).ToString("o")
-        ip_address = $myIp
-        os_type = "windows"
-        severity = $sev
-    }
-    if ($extra) { $body += $extra }
-    try {
-        $json = $body | ConvertTo-Json -Depth 3 -Compress
-        Invoke-RestMethod -Uri "$API_URL/api/v1/ingest/event" -Method POST -Body $json -Headers $headers -TimeoutSec 5
-        Write-Log "Event sent: $type"
-    } catch {
-        Write-Log "Event FAILED: $type - $($_.Exception.Message)"
-    }
-}
-
-function Check-Usb {
-    $current = @{}
-    try {
-        Get-CimInstance -Class Win32_USBControllerDevice -EA SilentlyContinue | ForEach-Object {
-            $dep = $_.Dependent -replace '.*="(.*?)".*', '$1'
-            $current[$dep] = $true
-        }
-        Get-CimInstance -Class Win32_DiskDrive -EA SilentlyContinue | Where-Object { $_.InterfaceType -eq "USB" } | ForEach-Object {
-            $current["DISK_$($_.DeviceID)"] = $true
-        }
-    } catch {}
-    if ($script:knownUsb.Count -eq 0) { $script:knownUsb = $current; return }
-    foreach ($k in $current.Keys) {
-        if (-not $script:knownUsb.ContainsKey($k)) {
-            Send-SecurityEvent "usb_connected" "USB connected: $k" "low" @{ device = $k }
-        }
-    }
-    foreach ($k in $script:knownUsb.Keys) {
-        if (-not $current.ContainsKey($k)) {
-            Send-SecurityEvent "usb_removed" "USB removed: $k" "info" @{ device = $k }
-        }
-    }
-    $script:knownUsb = $current
-}
-
-function Check-Registry {
-    $regPaths = @(
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run",
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
-    )
-    $current = @{}
-    foreach ($p in $regPaths) {
-        try {
-            $items = Get-ItemProperty -Path $p -EA SilentlyContinue
-            if ($items) {
-                $current[$p] = ($items.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join "|"
-            }
-        } catch {}
-    }
-    if ($script:regBaseline.Count -eq 0) { $script:regBaseline = $current; return }
-    foreach ($k in $current.Keys) {
-        if ($script:regBaseline[$k] -and $script:regBaseline[$k] -ne $current[$k]) {
-            Send-SecurityEvent "registry_changed" "Registry modified: $k" "high" @{ registry_key = $k }
-        }
-    }
-    $script:regBaseline = $current
-}
-
-function Check-Fim {
-    $targets = @(
-        "$env:WINDIR\System32\drivers\etc\hosts",
-        "$env:WINDIR\System32\config\SAM",
-        "$env:WINDIR\System32\config\SECURITY"
-    )
-    if ($script:fimBaseline.Count -eq 0) {
-        foreach ($f in $targets) {
-            if (Test-Path $f) {
-                try {
-                    $h = [System.IO.File]::OpenRead($f)
-                    $sha = [System.Security.Cryptography.SHA256]::Create()
-                    $hash = [BitConverter]::ToString($sha.ComputeHash($h)).Replace("-", "")
-                    $h.Close()
-                    $script:fimBaseline[$f] = $hash
-                } catch {}
-            }
-        }
-        return
-    }
-    foreach ($f in $targets) {
-        if (-not (Test-Path $f)) { continue }
-        try {
-            $h = [System.IO.File]::OpenRead($f)
-            $sha = [System.Security.Cryptography.SHA256]::Create()
-            $cur = [BitConverter]::ToString($sha.ComputeHash($h)).Replace("-", "")
-            $h.Close()
-            if ($script:fimBaseline[$f] -and $script:fimBaseline[$f] -ne $cur) {
-                Send-SecurityEvent "file_changed" "FIM: $f hash changed" "high" @{ file = $f }
-                $script:fimBaseline[$f] = $cur
-            }
-        } catch {}
-    }
-}
-
-Write-Log "Monitoring $hn ($myIp)"
-Write-Host "CyberNova monitoring $hn ($myIp)" -ForegroundColor Green
-
-$cycle = 0
-while ($true) {
-    $cycle++
-    Check-Usb
-    Check-Registry
-    $extra = @{}
-    if ($cycle % 2 -eq 0) {
-        Check-Fim
-        # Process list
-        $procs = @()
-        try {
-            Get-Process -EA SilentlyContinue | Select-Object -First 100 | ForEach-Object {
-                $procs += @{ pid = $_.Id; name = $_.ProcessName; memory_mb = [math]::Round($_.WorkingSet64 / 1MB, 1); event_type = "process_running" }
-            }
-        } catch {}
-        $extra["processes"] = $procs
-        # Network connections
-        $conns = @()
-        try {
-            Get-NetTCPConnection -EA SilentlyContinue | Select-Object -First 100 | ForEach-Object {
-                $conns += @{ local_ip = $_.LocalAddress; local_port = $_.LocalPort; remote_ip = $_.RemoteAddress; remote_port = $_.RemotePort; protocol = "tcp" }
-            }
-        } catch {}
-        $extra["connections"] = $conns
-    }
-    Send-Telemetry $extra
-    Start-Sleep -Seconds $INTERVAL
-}
+# This PS1 no longer runs the monitoring loop.
+# The scheduled task runs host_agent.py directly via Python.
+Write-Host "CyberNova: PS1 agent is deprecated. host_agent.py handles monitoring." -ForegroundColor Yellow
+Write-Host "Scheduled task runs: pythonw.exe host_agent.py (no terminal)" -ForegroundColor Yellow
 
 }
 """
+
 
 
 LINUX_AGENT = '''#!/usr/bin/env python3

@@ -142,10 +142,18 @@ async def test_auth_full_flow():
             assert resp.status_code == 200
             assert resp.json()["total"] == 2
 
-            # ── 5. RBAC: viewer denied from admin-protected route ───────────────
+            # ── 5. RBAC: viewer can LIST users (has USERS_VIEW) but denied from create ──
             resp = await c.get(
                 "/api/v1/admin/users/",
                 headers={"Authorization": f"Bearer {viewer_token}"},
+            )
+            assert resp.status_code == 200, resp.text  # viewers have USERS_VIEW
+
+            # Viewer cannot CREATE users (no USERS_CREATE)
+            resp = await c.post(
+                "/api/v1/admin/users/",
+                headers={"Authorization": f"Bearer {viewer_token}"},
+                json={"username": "new-user", "email": "new@test.com", "password": "NewPass1!", "roles": ["viewer"]},
             )
             assert resp.status_code == 403, resp.text
             assert "Insufficient permissions" in resp.json().get("detail", "")

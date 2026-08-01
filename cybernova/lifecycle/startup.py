@@ -286,7 +286,7 @@ async def startup_file_watcher(
 
 
 async def startup_ws_dashboard(heartbeat: "HeartbeatMonitor") -> None:
-    """Initialize WebSocket handler and dashboard push worker."""
+    """Initialize WebSocket handler, dashboard push worker, and Redis Pub/Sub bridge."""
     from cybernova.api.websocket import ws_handler
 
     await ws_handler.initialize()
@@ -300,6 +300,13 @@ async def startup_ws_dashboard(heartbeat: "HeartbeatMonitor") -> None:
         log.info("Dashboard push worker started (interval: 10s)")
     except Exception as e:
         log.warning("Dashboard push worker start error: %s", e)
+
+    # Start Redis Pub/Sub → WebSocket bridge for live pipeline alerts
+    try:
+        await _start_ws_pubsub_bridge()
+        log.info("Redis Pub/Sub → WebSocket bridge started (live alerts pipe)")
+    except Exception as e:
+        log.warning("Redis Pub/Sub → WebSocket bridge start error: %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -507,35 +514,7 @@ async def startup_dlq_worker(is_leader: bool, heartbeat: "HeartbeatMonitor") -> 
 
 
 # ---------------------------------------------------------------------------
-# Phase 10 — Seeding
-# ---------------------------------------------------------------------------
-
-
-async def startup_seeding(is_leader: bool) -> None:
-    """Seed default playbooks, suppression rules, and demo data (leader only)."""
-    if not is_leader:
-        return
-
-    try:
-        from cybernova.response.automation.engine import seed_default_playbooks
-        seed_default_playbooks()
-        log.info("Default playbooks seeded")
-    except Exception as e:
-        log.warning("Failed to seed default playbooks: %s", e)
-
-    try:
-        from cybernova.suppression.engine import seed_default_suppression_rules
-        await seed_default_suppression_rules()
-        log.info("Default suppression rules seeded")
-    except Exception as e:
-        log.warning("Failed to seed suppression rules: %s", e)
-
-    # Auto-seed demo data on first startup so the dashboard isn't blank
-    await _auto_seed_demo_data()
-
-
-# ---------------------------------------------------------------------------
-# Phase 11 — Background Services
+# Phase 10 — Background Services
 # ---------------------------------------------------------------------------
 
 
@@ -561,78 +540,77 @@ async def startup_backup(is_leader: bool, heartbeat: "HeartbeatMonitor") -> None
         log.warning("Backup manager start error: %s", e)
 
 
-async def _auto_seed_demo_data() -> None:
-    """Auto-seed demo alerts and incidents on first startup so dashboard isn't blank."""
-    try:
-        from cybernova.database.postgres.session import async_session_factory
-        from cybernova.database.postgres.models import Alert, Device
-        from sqlalchemy import select, func
-        from cybernova.core.utils.helpers import new_id, utcnow
-        from datetime import timedelta
-        import random  # nosec - demo seeding
-
-        async with async_session_factory() as db:
-            # Check if alerts already exist — skip if so
-            count_result = await db.execute(select(func.count(Alert.id)))
-            if (count_result.scalar() or 0) > 0:
-                log.info("Demo data already exists — skipping auto-seed")
-                return
-
-            # Get the default tenant
-            from cybernova.database.postgres.models import Tenant
-            tenant_result = await db.execute(select(Tenant).limit(1))
-            tenant = tenant_result.scalars().first()
-            if not tenant:
-                log.info("No tenant found — skipping demo data seed")
-                return
-
-            tenant_id = tenant.id
-
-            # Seed realistic demo alerts
-            sample_alerts = [
-                {"rule": "failed_login_brute_force", "severity": "high", "desc": "Multiple failed login attempts from external IP 203.0.113.42 — possible brute force", "ip": "203.0.113.42", "host": "DC-PRIMARY"},
-                {"rule": "malicious_process_detected", "severity": "critical", "desc": "Suspicious process mimikatz.exe detected on domain controller — credential dumping attempt", "ip": "10.0.0.5", "host": "DC-PRIMARY"},
-                {"rule": "c2_beacon_detected", "severity": "high", "desc": "Outbound connection to known C2 server 45.33.32.156:443 detected on port 8443", "ip": "45.33.32.156", "host": "WS-FINANCE03"},
-                {"rule": "privilege_escalation", "severity": "critical", "desc": "Unauthorized privilege escalation: user jdoe gained SYSTEM-level access", "ip": "10.0.0.22", "host": "WS-DEV07"},
-                {"rule": "data_exfiltration_suspected", "severity": "high", "desc": "Large data transfer (2.3GB) to external IP 203.0.113.50 detected", "ip": "203.0.113.50", "host": "WS-HR02"},
-                {"rule": "encoded_powershell_execution", "severity": "critical", "desc": "Base64 encoded PowerShell command execution — potential malware download", "ip": "10.0.0.44", "host": "WS-SALES01"},
-                {"rule": "anomalous_dns_query", "severity": "medium", "desc": "High-volume DNS queries to suspicious domain x7z9k.malware.xyz", "ip": "10.0.0.15", "host": "WS-MKT01"},
-                {"rule": "unauthorized_rdp_access", "severity": "medium", "desc": "RDP connection from unknown external IP 198.51.100.23", "ip": "198.51.100.23", "host": "SRV-DB01"},
-            ]
-
-            created = 0
-            for sample in sample_alerts:
-                hours_ago = random.randint(1, 72)  # nosec - demo data
-                alert = Alert(
-                    id=new_id(),
-                    tenant_id=tenant_id,
-                    rule_name=sample["rule"],
-                    severity=sample["severity"],
-                    risk_score={"critical": 95, "high": 75, "medium": 50}.get(sample["severity"], 30),
-                    description=sample["desc"],
-                    status="new",  # 'new' matches dashboard_router.py active_threats query
-                    source_ip=sample["ip"],
-                    extra_data={"source_ip": sample["ip"], "hostname": sample["host"]},
-                    created_at=utcnow() - timedelta(hours=hours_ago),
-                )
-                db.add(alert)
-                created += 1
-
-            # NOTE: We do NOT seed demo devices. Fake devices cause the onboarding
-            # page to show 'connected' before any real agent has connected, which
-            # misleads users into thinking monitoring is working when it isn't.
-            # Demo alerts are kept so the dashboard isn't completely blank.
-
-            await db.commit()
-            log.info("AUTO-SEEDED %d demo alerts for tenant %s (no demo devices)", created, tenant_id)
-
-    except Exception as e:
-        log.warning("Auto-seed demo data failed (non-fatal): %s", e)
-
-
 # ---------------------------------------------------------------------------
 # Companion shutdown helpers
 # ---------------------------------------------------------------------------
+
+
+async def _start_ws_pubsub_bridge() -> None:
+    """Bridge Redis Pub/Sub alert broadcasts to WebSocket clients.
+
+    The pipeline worker (separate container) publishes alerts to Redis channels
+    like 'cybernova:ws:{tenant_id}:alerts'. This listener picks them up and
+    forwards to connected WebSocket clients in the backend process.
+    """
+    from cybernova.database.redis import get_redis
+    from cybernova.api.websocket import ws_handler
+    import json as json_module
+
+    redis = await get_redis()
+    if not redis:
+        log.warning("Redis unavailable — WS Pub/Sub bridge disabled")
+        return
+
+    async def _pubsub_listener():
+        try:
+            pubsub = redis.pubsub()
+            # Subscribe to ALL tenant alert/incident channels
+            await pubsub.psubscribe("cybernova:ws:*")
+            log.info("WS Pub/Sub bridge listening on cybernova:ws:*")
+
+            async for message in pubsub.listen():
+                if message["type"] != "pmessage":
+                    continue
+
+                channel = message["channel"]
+                data_str = message.get("data", "")
+                if isinstance(data_str, bytes):
+                    data_str = data_str.decode("utf-8")
+                if not data_str:
+                    continue
+
+                try:
+                    payload = json_module.loads(data_str)
+                    msg_type = payload.get("type")
+                    msg_data = payload.get("data", {})
+
+                    # Extract tenant_id from channel: cybernova:ws:{tenant_id}:alerts
+                    parts = channel.split(":")
+                    tenant_id = parts[2] if len(parts) >= 4 else None
+                    if not tenant_id:
+                        continue
+
+                    if msg_type == "alert":
+                        await ws_handler.broadcast_alert(msg_data, tenant_id)
+                        log.debug("WS bridge: alert → tenant %s", tenant_id[:8])
+                    elif msg_type == "incident":
+                        await ws_handler.broadcast_incident(msg_data, tenant_id)
+                        log.debug("WS bridge: incident → tenant %s", tenant_id[:8])
+                except Exception as exc:
+                    log.debug("WS bridge parse error: %s", exc)
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:
+            log.error("WS Pub/Sub bridge error: %s", exc)
+        finally:
+            try:
+                await pubsub.punsubscribe()
+                await pubsub.close()
+            except Exception:
+                pass
+
+    task = asyncio.create_task(_pubsub_listener())
+    _cleanup_registry["ws_pubsub_bridge"] = task
 
 
 async def shutdown_redis_components() -> None:
@@ -652,6 +630,12 @@ async def shutdown_redis_components() -> None:
             log.info("Rule hot-reloader stopped")
         except Exception as e:
             log.warning("Rule hot-reloader stop error: %s", e)
+    if "ws_pubsub_bridge" in _cleanup_registry:
+        try:
+            _cleanup_registry["ws_pubsub_bridge"].cancel()
+            log.info("WS Pub/Sub bridge stopped")
+        except Exception as e:
+            log.warning("WS Pub/Sub bridge stop error: %s", e)
 
 
 async def startup_marketplace() -> None:

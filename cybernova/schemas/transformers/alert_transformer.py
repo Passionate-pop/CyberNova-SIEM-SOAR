@@ -58,17 +58,20 @@ def transform_alert(alert: Any) -> Dict[str, Any]:
     source_ip = _extract_field(alert, "source_ip", "") or (extra_data.get("source_ip", "") if isinstance(extra_data, dict) else "")
     dest_ip = _extract_field(alert, "dest_ip", "") or (extra_data.get("dest_ip", "") if isinstance(extra_data, dict) else "")
 
+    rule_name = getattr(alert, "rule_name", None) or ""
+
     result = {
         "alert_id": getattr(alert, "id", ""),
-        "type": getattr(alert, "rule_name", "Unknown") or "Unknown",
+        "type": rule_name if rule_name else "Unknown",
         "severity": severity_str,
         "risk_score": getattr(alert, "risk_score", 0) or 0,
         "timestamp": timestamp,
         "status": _map_alert_status(getattr(alert, "status", "new")),
         "source_ip": source_ip,
         "destination_ip": dest_ip,
-        "description": description if description else f"Alert triggered by rule: {getattr(alert, 'rule_name', 'unknown')}",
-        "rule_id": getattr(alert, "rule_name", ""),
+        "description": description if description else f"Alert triggered by rule: {rule_name or 'unknown'}",
+        "rule_id": rule_name if rule_name else "",
+        "rule_name": rule_name if rule_name else "",
         "affected_system": getattr(alert, "device_id", None) or "Unknown",
         "investigation": {
             "threat_intel": _build_threat_intel_details(threat_intel),

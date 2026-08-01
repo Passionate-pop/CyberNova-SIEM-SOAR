@@ -101,7 +101,7 @@ services:
     command:
       - sh
       - -c
-      - PASSWORD="$(tr -d '\r\n' < /run/secrets/redis_password)" && exec redis-server --requirepass "$$PASSWORD" --appendonly yes --appendfsync everysec --maxmemory "${REDIS_MAXMEMORY:-512mb}" --maxmemory-policy "${REDIS_MAXMEMORY_POLICY:-allkeys-lru}" --lfu-decay-time 1 --lfu-log-factor 10
+      - PASSWORD="$(tr -d '\r\n' < /run/secrets/redis_password)" && exec redis-server --requirepass "$$PASSWORD" --appendonly no --save "" --maxmemory "${REDIS_MAXMEMORY:-512mb}" --maxmemory-policy "${REDIS_MAXMEMORY_POLICY:-allkeys-lru}" --lfu-decay-time 1 --lfu-log-factor 10
     volumes:
       - redis_data:/data
     # ⚠️ Port exposed for dev/debug only — comment out in production
@@ -155,6 +155,7 @@ services:
       - ./cybernova:/app/cybernova:ro
       - ./scripts:/app/scripts:ro
       - ./data/rag_store:/data/rag_store
+      - ./host_agent.py:/app/host_agent.py:ro
     environment:
       RAG_PERSIST_DIR: /app/data/rag_store
       ENVIRONMENT: production
@@ -277,11 +278,9 @@ services:
       args:
         VITE_BASE_PATH: /app/
     container_name: cybernova-frontend
-    ports:
-      - "8080:80"
-    # VITE_BASE_PATH=/app/ — SPA served at /app/ via nginx reverse proxy
-    # Marketing website at / via nginx serving static web-page/out/ files
-    # VITE_API_URL left empty — frontend makes same-origin API calls through nginx reverse proxy
+    # No public port — accessed through unified nginx reverse proxy at /app/
+    expose:
+      - "80"
     depends_on:
       backend:
         condition: service_started
@@ -305,7 +304,7 @@ services:
         max-size: "10m"
         max-file: "2"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/app/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -323,7 +322,7 @@ services:
       - /etc/nginx/conf.d
     ports:
       - "443:443"
-      - "8888:80"
+      - "8080:80"      # Single entry point — CyberNova UI, API, agent scripts, marketing site
     volumes:
       - ./nginx/nginx-unified.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl

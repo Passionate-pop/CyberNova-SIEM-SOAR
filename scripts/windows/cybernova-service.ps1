@@ -197,7 +197,7 @@ ADMIN_PASSWORD=Admin2026!
 AGENT_PASSWORD=AgentSecure2026!
 ENVIRONMENT=production
 LOG_LEVEL=INFO
-CORS_ORIGINS=http://localhost,http://localhost:8888,http://localhost:8080
+CORS_ORIGINS=http://localhost,http://localhost:8080
 "@ | Set-Content -Path $envFile
     Write-Log "Generated .env file"
 }
@@ -289,7 +289,7 @@ if (Test-Path $agentScript) {
 # --- Phase 4: Health monitor loop ------------------------------------------
 Write-Log "============================================"
 Write-Log "CyberNova is running in background"
-Write-Log "Dashboard: http://localhost:8888"
+Write-Log "Dashboard: http://localhost:8080"
 Write-Log "API:       http://localhost:8000"
 Write-Log "============================================"
 

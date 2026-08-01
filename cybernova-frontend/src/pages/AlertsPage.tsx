@@ -370,7 +370,8 @@ export function AlertsPage() {
               setToast({ message: 'Alert marked as safe', type: 'success' });
             } else if (confirmAction.type === 'block-ip') {
               await blockIP(confirmAction.alert.source_ip, `SOAR block from alert ${confirmAction.alert.alert_id}`);
-              setToast({ message: `IP ${confirmAction.alert.source_ip} blocked successfully`, type: 'success' });
+              try { await markAlertSafe(confirmAction.alert.alert_id); } catch { /* non-critical - IP is already blocked */ }
+              setToast({ message: `IP ${confirmAction.alert.source_ip} blocked and alert resolved`, type: 'success' });
             } else if (confirmAction.type === 'isolate') {
               const devices = await fetchDevices();
               const device = devices.find((d) => d.ip_address === confirmAction.alert.source_ip);

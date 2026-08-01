@@ -26,6 +26,7 @@ const AddDevicePage = lazy(() => import('./pages/AddDevicePage').then(m => ({ de
 const RateLimitDashboard = lazy(() => import('./pages/RateLimitDashboard').then(m => ({ default: m.RateLimitDashboard })));
 const MitrePage = lazy(() => import('./pages/MitrePage').then(m => ({ default: m.MitrePage })));
 import { isApiDown, onApiHealthChange, onAuthCleared, reconstructUserFromToken } from './services/api';
+import { resolveUserPurpose, resolveUserRole } from './utils/userResolve';
 
 const pageComponents: Record<Page, React.ComponentType> = {
   dashboard: UnifiedDashboard,
@@ -251,59 +252,7 @@ export default function App() {
   );
 }
 
-/**
- * Read the JWT token payload directly from the persisted auth store.
- * This is the most reliable source of user claims — it bypasses any
- * corruption in the user object.
- */
-function readJwtFromStorage(): Record<string, unknown> | null {
-  try {
-    const stored = localStorage.getItem('cybernova-auth');
-    if (!stored) return null;
-    const parsed = JSON.parse(stored);
-    const token = parsed.state?.token;
-    if (!token) return null;
-    const base64 = token.split('.')[1];
-    const json = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Try to determine user's purpose from EVERY available source.
- * The user object from the auth store may lose its `purpose` field
- * due to JWT refresh stripping claims, corrupted persist storage, etc.
- */
-function resolveUserPurpose(user: any): string {
-  // 1. From the user object in the auth store
-  if (user?.purpose) return user.purpose;
-  // 2. From localStorage (set during onboarding)
-  const stored = localStorage.getItem('cybernova_purpose');
-  if (stored) return stored;
-  // 3. From the JWT token payload directly (most reliable)
-  const jwt = readJwtFromStorage();
-  if (jwt?.purpose) return jwt.purpose as string;
-  // 4. From the last user blob stored during registration
-  try {
-    const lastUser = JSON.parse(localStorage.getItem('cybernova_last_user') || '{}');
-    if (lastUser.purpose) return lastUser.purpose;
-  } catch {}
-  return 'individual';
-}
-
-function resolveUserRole(user: any): string {
-  // 1. From the user object in the auth store
-  if (user?.role) return user.role;
-  if (user?.roles?.[0]) return user.roles[0];
-  // 2. From localStorage org_type (set during login for org users)
-  if (localStorage.getItem('cybernova_org_type') === 'boss') return 'admin';
-  // 3. From the JWT token payload directly
-  const jwt = readJwtFromStorage();
-  if (jwt && Array.isArray(jwt.roles) && (jwt.roles as string[]).length > 0) return (jwt.roles as string[])[0];
-  return 'viewer';
-}
+// resolveUserPurpose, resolveUserRole are now shared via utils/userResolve.ts
 
 function getAllowedPages(purpose: string, role: string): Page[] {
   // Build a minimal user-like object to pass to the centralized function

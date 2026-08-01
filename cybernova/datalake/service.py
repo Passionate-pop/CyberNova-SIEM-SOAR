@@ -27,13 +27,17 @@ class DatalakeService:
         now = utcnow()
         day_ago = now - timedelta(hours=24)
 
+        # Note: The pipeline processes events through an event bus (Redis/in-memory)
+        # and the normalizer stage does NOT persist NormalizedEvent to the database.
+        # Alerts ARE persisted by the alerter stage, so we count from Alert table instead
+        # of NormalizedEvent to show accurate processing metrics.
         total_events = (await db.execute(
-            select(func.count(NormalizedEvent.id)).where(NormalizedEvent.tenant_id == tenant_id)
+            select(func.count(Alert.id)).where(Alert.tenant_id == tenant_id)
         )).scalar() or 0
 
         events_24h = (await db.execute(
-            select(func.count(NormalizedEvent.id))
-            .where(NormalizedEvent.tenant_id == tenant_id, NormalizedEvent.timestamp >= day_ago)
+            select(func.count(Alert.id))
+            .where(Alert.tenant_id == tenant_id, Alert.created_at >= day_ago)
         )).scalar() or 0
 
         active_alerts = (await db.execute(
@@ -56,11 +60,12 @@ class DatalakeService:
             .group_by(Alert.severity)
         )).all()
 
+        # top_event_types from Alert table (since NormalizedEvent isn't persisted)
         type_rows = (await db.execute(
-            select(NormalizedEvent.event_type, func.count(NormalizedEvent.id))
-            .where(NormalizedEvent.tenant_id == tenant_id, NormalizedEvent.timestamp >= day_ago)
-            .group_by(NormalizedEvent.event_type)
-            .order_by(func.count(NormalizedEvent.id).desc()).limit(10)
+            select(Alert.rule_name, func.count(Alert.id))
+            .where(Alert.tenant_id == tenant_id, Alert.created_at >= day_ago)
+            .group_by(Alert.rule_name)
+            .order_by(func.count(Alert.id).desc()).limit(10)
         )).all()
 
         pending_actions = (await db.execute(

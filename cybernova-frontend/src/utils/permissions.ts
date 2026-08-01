@@ -6,6 +6,7 @@
 import { logAuthEvent } from './authTelemetry';
 import type { User, UserRole } from '../types';
 import { PERMISSIONS } from '../types';
+import { resolveUserPurpose, resolveUserRole } from './userResolve';
 
 // Role hierarchy (higher = more power)
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -41,6 +42,7 @@ const VIEW_PERMISSIONS: string[] = [
   PERMISSIONS.AGENT_VIEW,
   PERMISSIONS.INTEGRATIONS_VIEW,
   PERMISSIONS.TENANT_VIEW,
+  PERMISSIONS.USERS_VIEW,
   PERMISSIONS.CLOUD_VIEW,
   PERMISSIONS.CSPM_VIEW,
   PERMISSIONS.WORM_VIEW,
@@ -183,18 +185,19 @@ export function getNavItemsForUser(user: User | null): NavItem[] {
  *
  * ROLES:
  *   Individual — single user protecting their own devices
- *   Staff      — org member with monitoring/response access, NO management
+ *   Staff      — org member, same UI as individual (common pages only)
  *   Admin/Boss — full org control (devices, users, audit-logs, rate-limits)
  */
 export function getAllowedPageIds(user: User | null): string[] {
-  const purpose = user?.purpose || 'individual';
-  const role = user?.role || 'viewer';
+  const purpose = resolveUserPurpose(user);
+  const role = resolveUserRole(user);
 
   if (purpose === 'organization' && role === 'admin') {
     // Admin/Boss: common pages + admin-only management pages
     return [...COMMON_PAGES, ...ADMIN_ONLY_PAGES];
   }
 
-  // Individual & Staff: common pages only (no admin management)
+  // Staff and Individual users: common pages only
+  // Staff sees the same UI as individual — no Users, Devices, Audit Logs, or Rate Limits
   return [...COMMON_PAGES];
 }

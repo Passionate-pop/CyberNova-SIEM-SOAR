@@ -1,6 +1,8 @@
 import { Bell, Search, User, Wifi, X, AlertTriangle, Info, CheckCircle, WifiOff } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { isApiDown, onApiHealthChange, fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/api';
+import { useWebSocket, type WebSocketMessage } from '../../hooks/useWebSocket';
+import { useAuthStore } from '../../stores/useAuthStore';
 import type { Page } from './Sidebar';
 import type { NotificationItem } from '../../services/api';
 
@@ -73,10 +75,25 @@ export function TopNavbar({ currentPage, username, role = 'viewer' }: TopNavbarP
   };
 
 
+  // Auth store for WebSocket token
+  const { token, user } = useAuthStore();
+
   const [notifications, setNotifications] = useState<LocalNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // WebSocket hook for real-time notification updates
+  useWebSocket({
+    token: token || undefined,
+    tenantId: user?.tenant_id,
+    onMessage: useCallback((msg: WebSocketMessage) => {
+      // Immediately refetch notifications when new alerts or system notifications arrive
+      if (msg.type === 'new_alert' || msg.type === 'alert_updated' || msg.type === 'system_notification') {
+        loadNotifications();
+      }
+    }, []),
+  });
 
   const loadNotifications = async () => {
     try {
@@ -90,7 +107,8 @@ export function TopNavbar({ currentPage, username, role = 'viewer' }: TopNavbarP
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
+    // Poll every 10s as a fallback in case WebSocket is not connected
+    const interval = setInterval(loadNotifications, 10000);
     return () => clearInterval(interval);
   }, []);
 

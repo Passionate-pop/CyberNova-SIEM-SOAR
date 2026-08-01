@@ -46,7 +46,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     // Nginx proxy port (8888) stays as-is because nginx proxies /api/ to backend.
     // Frontend standalone port (8080) → map to backend port 8000.
     // Use the SAME URL the browser uses to reach the server.
-    // In production: http://server:8888 (nginx proxies /api/ → backend:8000)
+    // In production: http://server:8080 (nginx proxies /api/ → backend:8000)
     // In dev mode:   http://localhost:5173 (Vite proxies /api/ → localhost:8000)
     // The agent MUST go through the same entry point as the browser,
     // NOT directly to port 8000 — that port may not be reachable from remote servers.

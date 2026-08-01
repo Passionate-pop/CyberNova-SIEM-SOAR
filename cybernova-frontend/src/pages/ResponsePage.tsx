@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Ban, Skull, Unplug, Zap, Clock, CheckCircle, XCircle, Loader, History, Lock, Shield, Search, ArrowUpDown, Filter, Bug, CheckCheck } from 'lucide-react';
+import { Ban, Skull, Unplug, Zap, Clock, CheckCircle, XCircle, Loader, History, Lock, Shield, Search, ArrowUpDown, Filter, CheckCheck } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -9,7 +9,7 @@ import { useFetch } from '../hooks/useFetch';
 import { useRBAC } from '../hooks/useRBAC';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useAuthStore } from '../stores/useAuthStore';
-import { fetchResponseActions, executeAction, injectTestSoarActions } from '../services/api';
+import { fetchResponseActions, executeAction } from '../services/api';
 import type { ActionType, ResponseAction } from '../types';
 import { cn } from '../utils/cn';
 
@@ -93,7 +93,6 @@ export function ResponsePage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [injecting, setInjecting] = useState(false);
   const [activeTab, setActiveTab] = useState<'actions' | 'playbooks'>('actions');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -312,29 +311,6 @@ export function ResponsePage() {
             <ArrowUpDown size={14} />
             {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
           </button>
-          {/* Test SOAR inject — admin only */}
-          {isAdminUser && (
-            <button
-              onClick={async () => {
-                setInjecting(true);
-                try {
-                  await injectTestSoarActions();
-                  setError(null);
-                  refetch();
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'Failed to inject test actions');
-                } finally {
-                  setInjecting(false);
-                }
-              }}
-              disabled={injecting}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/50 transition-colors disabled:opacity-50"
-              title="Inject 6 test SOAR actions to verify real-time WebSocket flow"
-            >
-              <Bug size={14} className={cn(injecting && 'animate-spin')} />
-              {injecting ? 'Injecting...' : 'Test SOAR'}
-            </button>
-          )}
           {/* Results count */}
           <span className="text-xs text-cyber-muted ml-auto">
             {filteredActions.length} of {actions?.length || 0} actions
@@ -388,7 +364,7 @@ export function ResponsePage() {
             </div>
             <p className="text-sm font-medium text-cyber-text mb-1">No actions executed yet</p>
             <p className="text-xs text-cyber-muted text-center">Response actions will be logged here when executed.
-            <br /><span className="text-cyber-accent">Go to Dashboard → Seed Demo Data or use the Response Actions above to get started.</span></p>
+            <br /><span className="text-cyber-accent">Use the Response Actions above to get started.</span></p>
           </div>
         )}
       </Card>

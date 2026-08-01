@@ -45,7 +45,7 @@ Write-Host "  ╚═════════════════════
 Write-Host ""
 
 $script:stepNum = 1
-$script:totalSteps = 9
+$script:totalSteps = 10
 
 # ============================================================================
 # Step 1: Verify running as Administrator
@@ -289,7 +289,7 @@ $shortcutPath = Join-Path $desktopPath "CyberNova.lnk"
 # Create shortcut using WScript.Shell
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = "http://localhost:8888"
+$shortcut.TargetPath = "http://localhost:8080"
 $shortcut.Description = "CyberNova Security Dashboard"
 $shortcut.WorkingDirectory = $InstallDir
 
@@ -315,7 +315,7 @@ if (-not (Test-Path $startMenuDir)) {
 
 # Dashboard shortcut
 $smShortcut = $shell.CreateShortcut((Join-Path $startMenuDir "CyberNova Dashboard.lnk"))
-$smShortcut.TargetPath = "http://localhost:8888"
+$smShortcut.TargetPath = "http://localhost:8080"
 $smShortcut.Description = "Open CyberNova Dashboard"
 if (Test-Path $iconPath) { $smShortcut.IconLocation = "$iconPath,0" } else { $smShortcut.IconLocation = "shell32.dll,47" }
 $smShortcut.Save()
@@ -393,15 +393,28 @@ Start-ScheduledTask -TaskName $taskName
 Write-OK "Background service registered and started"
 Write-OK "CyberNova will auto-start on every boot"
 
-# --- Register Tray Icon for User Session (starts on logon) ---
+# --- Register Tray Icon for User Session (starts on logon, HIDDEN) ---
 if ($pythonCmd) {
     $trayTaskName = "CyberNova-Tray"
     $trayScript = Join-Path $InstallDir "cybernova_tray.py"
+    
+    # Use pythonw.exe (windowless) instead of python.exe to avoid terminal popup
+    $pythonwCmd = $pythonCmd
+    try {
+        $realPath = (Get-Command $pythonCmd).Source
+        $dir = Split-Path $realPath -Parent
+        $pywPath = Join-Path $dir "pythonw.exe"
+        if (Test-Path $pywPath) {
+            $pythonwCmd = "`"$pywPath`""
+            Write-OK "Using pythonw.exe for hidden tray icon"
+        }
+    } catch { }
+    
     if (Test-Path $trayScript) {
         Unregister-ScheduledTask -TaskName $trayTaskName -Confirm:$false -ErrorAction SilentlyContinue
 
         $trayAction = New-ScheduledTaskAction `
-            -Execute $pythonCmd `
+            -Execute $pythonwCmd `
             -Argument "`"$trayScript`"" `
             -WorkingDirectory $InstallDir
 
@@ -424,9 +437,97 @@ if ($pythonCmd) {
             -Force
 
         Start-ScheduledTask -TaskName $trayTaskName
-        Write-OK "System tray icon registered (auto-starts on logon)"
+        Write-OK "System tray icon registered (auto-starts on logon, hidden)"
     }
 }
+
+# ============================================================================
+# Step 10: Auto-Register Device with Backend
+# ============================================================================
+Write-Step "Registering this device with CyberNova backend..."
+
+# Wait for backend to be ready
+$backendReady = $false
+for ($i = 0; $i -lt 30; $i++) {
+    try {
+        $health = Invoke-WebRequest -Uri "http://localhost:8000/health" -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
+        if ($health.StatusCode -eq 200) {
+            $backendReady = $true
+            break
+        }
+    } catch { }
+    Start-Sleep -Seconds 2
+}
+
+if (-not $backendReady) {
+    Write-Warn "Backend not ready yet — device will register automatically when agent starts"
+} else {
+    Write-OK "Backend is healthy"
+    
+    # Login to get JWT token
+    try {
+        $loginBody = @{ username = "admin"; password = "Admin2026!" } | ConvertTo-Json
+        $loginResp = Invoke-RestMethod `
+            -Uri "http://localhost:8000/api/v1/auth/login" `
+            -Method Post `
+            -Body $loginBody `
+            -ContentType "application/json" `
+            -TimeoutSec 10
+        
+        $token = $loginResp.access_token
+        Write-OK "Authenticated with backend"
+        
+        # Register this device via telemetry (auto-registers by hostname)
+        $hostname = $env:COMPUTERNAME
+        $telemetryBody = @{
+            system = @{
+                hostname = $hostname
+                os_type = "windows"
+                os_version = (Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue).Version
+                agent_version = "3.0.0"
+            }
+            heartbeat_interval = 30
+            sequence_number = 1
+            timestamp = (Get-Date).ToString("o")
+        } | ConvertTo-Json -Depth 5
+        
+        $telemetryResp = Invoke-RestMethod `
+            -Uri "http://localhost:8000/api/v1/agent/telemetry" `
+            -Method Post `
+            -Body $telemetryBody `
+            -ContentType "application/json" `
+            -Headers @{ Authorization = "Bearer $token" } `
+            -TimeoutSec 10
+        
+        if ($telemetryResp.device_registered) {
+            Write-OK "Device registered: $hostname (ID: $($telemetryResp.device_id))"
+            
+            # If we got a device token, save it for the agent
+            if ($telemetryResp.device_token) {
+                $configPath = Join-Path $InstallDir "agent_config.json"
+                $config = @{
+                    api_url = "http://localhost:8000"
+                    device_id = $telemetryResp.device_id
+                    token = $telemetryResp.device_token
+                    registered_at = (Get-Date).ToString("o")
+                }
+                $config | ConvertTo-Json | Set-Content -Path $configPath -Force
+                Write-OK "Device token saved to agent_config.json"
+            }
+        } else {
+            Write-OK "Device already registered: $hostname"
+        }
+    } catch {
+        Write-Warn "Device registration failed: $($_.Exception.Message)"
+        Write-Warn "Agent will register automatically when it starts and sends its first heartbeat"
+    }
+}
+
+# Clean up any duplicate Run key from old persist_agent.ps1
+$runKeyPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+$runKeyName = "CyberNovaHostDefender"
+Remove-ItemProperty -Path $runKeyPath -Name $runKeyName -ErrorAction SilentlyContinue
+Write-OK "Cleaned up duplicate Run key (only scheduled task will start on boot)"
 
 # ============================================================================
 # Done!
@@ -445,7 +546,7 @@ Write-Host "     Background service -> Starts on boot, runs 24/7, no terminal ne
 Write-Host "     Health monitor    -> Auto-restarts if anything crashes" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  Services starting (this may take 30-60 seconds):" -ForegroundColor White
-Write-Host "     Dashboard:  http://localhost:8888" -ForegroundColor Cyan
+Write-Host "     Dashboard:  http://localhost:8080" -ForegroundColor Cyan
 Write-Host "     API:        http://localhost:8000" -ForegroundColor Cyan
 Write-Host "     Grafana:    http://localhost:3001" -ForegroundColor Cyan
 Write-Host ""
@@ -456,15 +557,9 @@ Write-Host ""
 
 # Open dashboard after a short delay
 Start-Sleep -Seconds 10
-Start-Process "http://localhost:8888"
+Start-Process "http://localhost:8080"
 
-# Start system tray icon
-if ($pythonCmd) {
-    $trayScript = Join-Path $InstallDir "cybernova_tray.py"
-    if (Test-Path $trayScript) {
-        Write-OK "System tray icon started (auto-starts on every logon)"
-    }
-}
+
 
 Write-Host ""
 Write-Host "  Press any key to close this installer..." -ForegroundColor Gray

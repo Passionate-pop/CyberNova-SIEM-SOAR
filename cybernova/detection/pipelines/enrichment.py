@@ -50,8 +50,21 @@ class EnrichmentService:
         if not event:
             raise ValueError(f"Normalized event {normalized_event_id} not found")
 
-        geo = await geoip_lookup(event.source_ip or "")
-        threat = await threat_intel_lookup(event.source_ip or "")
+        # Timeout-protected lookups -- external API calls can hang
+        geo = {}
+        threat = {}
+        try:
+            geo = await asyncio.wait_for(geoip_lookup(event.source_ip or ""), timeout=3.0)
+        except asyncio.TimeoutError:
+            log.warning("GeoIP lookup timed out for %s", event.source_ip)
+        except Exception as exc:
+            log.debug("GeoIP lookup failed: %s", exc)
+        try:
+            threat = await asyncio.wait_for(threat_intel_lookup(event.source_ip or ""), timeout=3.0)
+        except asyncio.TimeoutError:
+            log.warning("Threat intel lookup timed out for %s", event.source_ip)
+        except Exception as exc:
+            log.debug("Threat intel lookup failed: %s", exc)
 
         base_risk = {"critical": 80, "high": 60, "medium": 40, "low": 20, "info": 10}.get(
             event.severity or "info", 10

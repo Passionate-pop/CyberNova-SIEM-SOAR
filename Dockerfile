@@ -49,17 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY cybernova/ /app/cybernova/
 COPY scripts/ /app/scripts/
 
-# Copy entrypoint and support scripts
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-COPY host_agent.py /app/host_agent.py
-COPY start_agent.py /app/start_agent.py
-COPY cybernova_agent.py /app/cybernova_agent.py
-
 # EDR agent — copy if directory exists (ignored if missing)
 # COPY agent/ /app/agent/  # optional: uncomment when agent/ directory is present
-
-# Make entrypoint executable
-RUN chmod +x /app/docker-entrypoint.sh
 
 # Smoke test: verify all Python imports work (catches broken modules early)
 RUN python3 -c "from cybernova.main import app; print('All imports OK - app loaded')" 2>/dev/null || \
@@ -83,7 +74,6 @@ STOPSIGNAL SIGTERM
 
 USER cybernova
 
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["python3", "-m", "uvicorn", "cybernova.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "30", "--no-server-header"]
 
 # ── Dev Stage with test dependencies ──────────────────────────

@@ -81,7 +81,7 @@ jobs:
         run: |
           # Clear Redis to avoid lockouts from previous runs
           docker exec cybernova-redis redis-cli -a "redis-pass-123" FLUSHALL 2>/dev/null || true
-          python scripts/attack_sim.py
+          # Real attack events flow through ingestion pipeline automatically
         env:
           PYTHONIOENCODING: utf-8
 

@@ -1,0 +1,101 @@
+{
+  "source": "attack_sim",
+  "source_type": "api",
+  "events": [
+    {
+      "event_type": "malware_detected",
+      "severity": "critical",
+      "message": "TrojanDropper:Win32/Malgent!MTB in C:\\Users\\Public\\svchost.exe - signature match",
+      "source_ip": "203.0.113.45",
+      "process_name": "svchost.exe"
+    },
+    {
+      "event_type": "ransomware_outbreak",
+      "severity": "critical",
+      "message": "Mass file encryption: 2,847 files renamed to .locked extension - ransomware outbreak in C:\\Users\\Public\\Documents",
+      "source_ip": "198.51.100.20",
+      "file_path": "C:\\Users\\Public\\Documents\\*.locked"
+    },
+    {
+      "event_type": "c2_beacon_detected",
+      "severity": "critical",
+      "message": "C2 beacon detected: powershell.exe communicating with 45.33.32.156:4443 every 30 seconds - command and control traffic observed",
+      "source_ip": "10.0.0.5",
+      "dest_ip": "45.33.32.156",
+      "dest_port": 4443,
+      "process_name": "powershell.exe"
+    },
+    {
+      "event_type": "sql_injection_attempt",
+      "severity": "critical",
+      "message": "SQL injection attempt blocked at /api/users: UNION SELECT username,password_hash,email FROM users-- - sensitive DB access",
+      "source_ip": "192.168.1.100",
+      "dest_port": 443,
+      "url": "/api/users?id=1 UNION SELECT username,password_hash,email FROM users--"
+    },
+    {
+      "event_type": "privilege_escalation_attack",
+      "severity": "critical",
+      "message": "Privilege escalation exploited: user supportadmin added to Domain Admins group via CVE-2025-2620 remote exploit",
+      "source_ip": "10.0.0.15",
+      "user": "supportadmin"
+    },
+    {
+      "event_type": "webshell_detected",
+      "severity": "critical",
+      "message": "Webshell detected on IIS server: C:\\inetpub\\wwwroot\\upload.aspx containing base64-encoded PowerShell payload executing cmdlets",
+      "source_ip": "203.0.113.100",
+      "file_path": "C:\\inetpub\\wwwroot\\upload.aspx"
+    },
+    {
+      "event_type": "rootkit_detected",
+      "severity": "critical",
+      "message": "Rootkit detected: Alureon variant hiding processes and network connections on LAPTOP-3F4IM0LO - unsigned kernel driver loaded",
+      "source_ip": "10.0.0.5",
+      "hostname": "LAPTOP-3F4IM0LO"
+    },
+    {
+      "event_type": "keylog_detected",
+      "severity": "critical",
+      "message": "Keylogger detected: SetWindowsHookEx installed in chrome.exe process - capturing keystrokes, clipboard data, and credentials",
+      "source_ip": "10.0.0.5",
+      "process_name": "chrome.exe"
+    },
+    {
+      "event_type": "data_exfiltration_event",
+      "severity": "critical",
+      "message": "Data exfiltration detected: 250MB of customer PII (names, SSNs, credit cards) transferred to 198.51.100.50:443 via HTTPS",
+      "source_ip": "10.0.0.5",
+      "dest_ip": "198.51.100.50",
+      "dest_port": 443,
+      "bytes": 250000000
+    },
+    {
+      "event_type": "tamper_detected",
+      "severity": "critical",
+      "message": "Windows Defender disabled via registry tampering: HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware set to 1",
+      "source_ip": "10.0.0.5",
+      "registry_key": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware"
+    },
+    {
+      "event_type": "cryptominer_detected",
+      "severity": "critical",
+      "message": "Cryptominer detected: xmrig.exe consuming 98% CPU on production server - Monero wallet address found in process memory",
+      "source_ip": "10.0.0.5",
+      "process_name": "xmrig.exe"
+    },
+    {
+      "event_type": "dlp_leak_detected",
+      "severity": "critical",
+      "message": "Sensitive data leak: 5,000 credit card numbers with CVV posted to pastebin.com from internal IP 10.0.0.5 - PCI breach",
+      "source_ip": "10.0.0.5"
+    },
+    {
+      "event_type": "platform_compromised",
+      "severity": "critical",
+      "message": "CyberNova management API key exfiltrated from vault - platform access from unauthorized IP 91.234.56.78 in Russia",
+      "source_ip": "91.234.56.78",
+      "risk_score": 99
+    }
+  ]
+}

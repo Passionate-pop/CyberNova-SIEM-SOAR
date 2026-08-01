@@ -52,8 +52,11 @@ class DetectionRule:
         risk_score: float = 0.0, description: str = "",
         mitre_tactic: Optional[str] = None,
         mitre_technique: Optional[str] = None,
+        enabled: bool = True,
     ) -> None:
         self.name = name
+        self.id = name  # Use name as unique ID
+        self.enabled = enabled
         self.severity = severity
         self.conditions = conditions
         self.risk_score = risk_score
@@ -883,11 +886,32 @@ class RuleEngine:
         return results
 
     def list_rules(self) -> List[Dict[str, Any]]:
-        return [{"name": r.name, "severity": r.severity,
+        return [{"id": r.id, "name": r.name, "severity": r.severity,
                  "risk_score": r.risk_score, "description": r.description,
                  "mitre_tactic": getattr(r, "mitre_tactic", None),
-                 "mitre_technique": getattr(r, "mitre_technique", None)}
+                 "mitre_technique": getattr(r, "mitre_technique", None),
+                 "enabled": r.enabled}
                 for r in self.rules]
+
+    def update_rule(self, rule_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update a rule by ID (name). Returns updated rule dict or None if not found."""
+        for r in self.rules:
+            if r.id == rule_id:
+                if "enabled" in updates:
+                    r.enabled = bool(updates["enabled"])
+                if "severity" in updates:
+                    r.severity = str(updates["severity"])
+                if "risk_score" in updates:
+                    r.risk_score = float(updates["risk_score"])
+                if "description" in updates:
+                    r.description = str(updates["description"])
+                log.info("Rule updated: %s — %s", rule_id, updates)
+                return {"id": r.id, "name": r.name, "severity": r.severity,
+                        "risk_score": r.risk_score, "description": r.description,
+                        "mitre_tactic": getattr(r, "mitre_tactic", None),
+                        "mitre_technique": getattr(r, "mitre_technique", None),
+                        "enabled": r.enabled}
+        return None
 
 
 rule_engine = RuleEngine()

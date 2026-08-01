@@ -1,5 +1,12 @@
 # 🛡️ CyberNova — AI-Powered Security Platform
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](requirements.txt)
+[![FastAPI](https://img.shields.io/badge/FastAPI-async-green.svg)](cybernova/main.py)
+[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](cybernova-frontend/package.json)
+[![Docker](https://img.shields.io/badge/Docker-compose-2496ed.svg)](docker-compose.yml)
+[![MITRE ATT&CK](https://img.shields.io/badge/MITRE%20ATT%26CK-mapped-ff4500.svg)](SECURITY.md)
+
 **Open-source SIEM + SOAR + EDR. 658+ detection rules, 17 protection shields, 441 Sigma rules mapped to MITRE ATT&CK, auto-responds via SOAR playbooks.**
 
 ```
@@ -22,37 +29,43 @@
 
 ## 🚀 Quick Start
 
-### Option A: One-Click Install (Windows)
-
-```bat
-CyberNova-Install-Run.bat
-```
-
-Double-click → installs everything → opens browser automatically.
-
-### Option B: Docker (Linux/Mac/Windows)
+### Option A: Docker (Linux/Mac/Windows) — recommended
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/yourusername/cybernova.git
-cd cybernova
+git clone https://github.com/Passionate-pop/CyberNova-SIEM-SOAR.git
+cd CyberNova-SIEM-SOAR
 
-# 2. Generate secrets (or copy .env.example to .env)
+# 2. Copy the example config and set real secrets
 cp .env.example .env
+#   edit .env — generate secrets with:  openssl rand -hex 32
 
 # 3. Start everything
 docker compose up -d --build
 
 # 4. Open in browser
-# Marketing site:  http://localhost:8888
-# Dashboard:        http://localhost:8888/app/
+# Marketing site:  http://localhost:8080
+# Dashboard:        http://localhost:8080/app/
 # API docs:         http://localhost:8000/docs
+# Grafana:          http://localhost:3001   (admin / GRAFANA_PASSWORD)
+# MailHog (dev):    http://localhost:8025
 ```
 
-### Option C: Helm (Kubernetes)
+### Option B: Helm (Kubernetes)
 
 ```bash
 helm install cybernova ./helm/cybernova
+```
+
+### Option C: Development (without Docker)
+
+```bash
+# Backend (FastAPI)
+pip install -r requirements.txt
+uvicorn cybernova.main:app --host 0.0.0.0 --port 8000
+
+# Frontend (Vite dev server)
+cd cybernova-frontend && npm install && npm run dev
 ```
 
 ---
@@ -134,10 +147,10 @@ CyberNova defends against **658+ attack types** across network, web, host, cloud
 | Service | Port | Role |
 |---------|------|------|
 | `backend` | 8000 | FastAPI + pipeline orchestrator |
-| `frontend` | 8080 | React dashboard (Vite) |
+| `frontend` | 80 (internal) | React dashboard (Vite) |
 | `postgres` | 5432 | Events, alerts, incidents |
 | `redis` | 6379 | Streams, cache, pub/sub |
-| `nginx` | 8888/443 | Reverse proxy, TLS, rate limiting |
+| `nginx` | 8080/443 | Reverse proxy, TLS, rate limiting |
 | `pipeline-worker` | — | Redis Streams consumer |
 | `prometheus` | 9090 | Metrics collection |
 | `grafana` | 3001 | Dashboards & visualization |
@@ -242,11 +255,17 @@ cybernova/
 
 ## 🤝 Contributing
 
-1. Fork the repo
+1. Fork the repo (`https://github.com/Passionate-pop/CyberNova-SIEM-SOAR`)
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit changes (`git commit -m 'Add amazing feature'`)
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+Please make sure your changes pass the test suite before opening a PR:
+```bash
+python -m pytest tests/unit -v
+cd cybernova-frontend && npx tsc --noEmit
+```
 
 ---
 

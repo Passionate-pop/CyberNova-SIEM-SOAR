@@ -120,8 +120,9 @@ class NotificationService:
                     created_at=datetime.now(timezone.utc),
                 )
                 db.add(record)
-                # No explicit commit needed — get_db_session() auto-commits
+                await db.commit()
                 log.debug("Notification persisted to DB: %s", notification["title"])
+                break
         except Exception as exc:
             log.warning("Failed to persist notification to DB: %s", exc)
 

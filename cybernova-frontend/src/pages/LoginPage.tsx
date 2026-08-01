@@ -252,16 +252,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             e.preventDefault();
             const { hostname, protocol } = window.location;
             const port = window.location.port;
-            // When running under /app/ via nginx (port 8888 or 443), root serves the marketing site
-            // When running on direct port 8080 or 5173 (dev), redirect to nginx port
-            if (port === '8080' || port === '5173') {
-              window.location.href = `${protocol}//${hostname}:8888/`;
-            } else if (window.location.pathname.startsWith('/app/')) {
-              // Through nginx proxy at /app/ — go to root (marketing site)
-              window.location.href = '/';
+            // Unified nginx is on port 8080 — root serves the marketing site
+            // Dev mode on 5173 → redirect to nginx on 8080
+            if (port === '5173') {
+              window.location.href = `${protocol}//${hostname}:8080/`;
             } else {
-              // Direct access — try root first, fall back to nginx port
-              window.location.href = `${protocol}//${hostname}:8888/`;
+              // Same server, just go to root (marketing site)
+              window.location.href = '/';
             }
           }} className="inline-flex items-center gap-1 mt-3 text-xs text-cyan-400 hover:text-cyan-300 transition-colors">
             ← Back to website
@@ -315,12 +312,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               e.preventDefault();
               const { hostname, protocol } = window.location;
               const port = window.location.port;
-              if (port === '8080' || port === '5173') {
-                window.location.href = `${protocol}//${hostname}:8888/`;
-              } else if (window.location.pathname.startsWith('/app/')) {
-                window.location.href = '/';
+              // Unified nginx is on port 8080 — root serves the marketing site
+              if (port === '5173') {
+                window.location.href = `${protocol}//${hostname}:8080/`;
               } else {
-                window.location.href = `${protocol}//${hostname}:8888/`;
+                window.location.href = '/';
               }
             }} className="inline-flex items-center gap-1 mt-2 text-xs text-cyan-400 hover:text-cyan-300 transition-colors">
               ← Back to website

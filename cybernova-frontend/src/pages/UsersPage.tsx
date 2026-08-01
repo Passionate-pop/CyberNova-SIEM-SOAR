@@ -4,6 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { useFetch } from '../hooks/useFetch';
 import { fetchUsers, updateUserRole, disableUser } from '../services/api';
+import { useAuthStore } from '../stores/useAuthStore';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import type { User as UserType, UserRole } from '../types';
 
@@ -22,6 +23,8 @@ const roleIcons: Record<UserRole, React.ReactNode> = {
 };
 
 export function UsersPage() {
+  const currentUser = useAuthStore(s => s.user);
+  const isAdmin = currentUser?.role === 'admin';
   const { data: users, loading, refetch: refetchUsers } = useFetch(useCallback(() => fetchUsers(), []));
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
@@ -226,7 +229,7 @@ export function UsersPage() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-cyber-text">No users found</p>
-                        <p className="text-xs text-cyber-muted mt-1">Invite team members to collaborate.</p>
+                        <p className="text-xs text-cyber-muted mt-1">{isAdmin ? 'Invite team members to collaborate.' : 'No team members to display.'}</p>
                       </div>
                     </div>
                   </td>
@@ -289,7 +292,8 @@ export function UsersPage() {
               </div>
             </div>
 
-            {/* Role Selection */}
+            {/* Role Selection — admin only */}
+            {isAdmin && (
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-cyber-muted">Current Role</p>
               <div className="flex flex-wrap gap-2">
@@ -314,7 +318,9 @@ export function UsersPage() {
                 ))}
               </div>
             </div>
+            )}
 
+            {isAdmin && (
             <div className="flex gap-3 pt-2 border-t border-cyber-border">
               <button
                 onClick={() => setConfirmAction({ type: 'disable_user', user: selectedUser })}
@@ -325,6 +331,7 @@ export function UsersPage() {
                 Disable User
               </button>
             </div>
+            )}
           </div>
 
 

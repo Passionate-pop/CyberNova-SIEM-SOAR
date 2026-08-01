@@ -197,7 +197,7 @@ ROLE_PERMISSIONS: Dict[Role, Set[Permission]] = {
         Permission.RAG_VIEW,
     },
     Role.VIEWER: {
-        # View permissions — individuals get full read access
+        # View permissions — individuals & org staff get full read access
         Permission.ALERTS_VIEW,
         Permission.INCIDENTS_VIEW,
         Permission.RULES_VIEW,
@@ -223,6 +223,8 @@ ROLE_PERMISSIONS: Dict[Role, Set[Permission]] = {
         Permission.CLOUD_VIEW,
         Permission.CSPM_VIEW,
         Permission.WORM_VIEW,
+        # Org staff need read access to users and devices
+        Permission.USERS_VIEW,
     },
 }
 

@@ -7,6 +7,7 @@ import { cn } from '../../utils/cn';
 import { useAuth } from '../../hooks/useAuth';
 import type { Page } from '../../types';
 import { getNavItemsForUser } from '../../utils/permissions';
+import { resolveUserPurpose, resolveUserRole, resolveOrgType } from '../../utils/userResolve';
 
 export type { Page };
 
@@ -45,13 +46,13 @@ function resolveNavItems(user: any): { id: string; label: string; icon: string }
 }
 
 function getHeaderInfo(user: any): { title: string; subtitle: string; accentColor: string } {
-  // Prefer user object's purpose (from JWT/auth store), fallback to localStorage
-  const purpose = user?.purpose || localStorage.getItem('cybernova_purpose') || 'individual';
-  // Prefer user object's org_name (from JWT), fallback to localStorage
+  const purpose = resolveUserPurpose(user);
+  const role = resolveUserRole(user);
+  const orgType = resolveOrgType(user);
   const orgName = user?.org_name || localStorage.getItem('cybernova_org_name');
   
   if (purpose === 'organization') {
-    if (user?.role === 'admin') {
+    if (role === 'admin' || orgType === 'boss') {
       return {
         title: orgName || 'CyberNova',
         subtitle: 'Control Center',

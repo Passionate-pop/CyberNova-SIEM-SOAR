@@ -34,18 +34,6 @@ export function onAuthCleared(cb: () => void): () => void {
 }
 
 import { logAuthEvent } from '../utils/authTelemetry';
-import {
-  seedDemoData as seedFrontendDemo,
-  getDemoAlerts,
-  getDemoIncidents,
-  getDemoLogs,
-  getDemoThreatIntel,
-  getDemoGlobalFeed,
-  getDemoResponseActions,
-  getDemoAIAnalysis,
-  getDemoAuditLogs,
-  getDemoPlaybooks,
-} from './demoData';
 import type {
   Alert, Incident, DashboardMetrics, TopThreat,
   SystemLog, NetworkConnection, ProcessInfo,
@@ -510,15 +498,12 @@ export async function fetchPlaybooks(): Promise<Playbook[]> {
     const result = await safeFetch<{ playbooks: Playbook[] }>('/api/v1/response/playbooks');
     if (result.playbooks && result.playbooks.length > 0) return result.playbooks || [];
     return [];
-  } catch { /* fall through */ }
-  try { return getDemoPlaybooks(); } catch { return []; }
+  } catch { return []; }
 }
 
 // ===== System Control =====
 
-export async function resetDemo(): Promise<{ success: boolean; deleted: Record<string, number> }> {
-  return apiRequest('/api/v1/demo/reset', { method: 'POST' });
-}
+
 
 // ===== Setup =====
 
@@ -546,17 +531,14 @@ export async function fetchAlerts(): Promise<Alert[]> {
     }
     // Backend returned empty array — this is valid (no alerts yet), NOT an error
     return [];
-  } catch { /* fall through to demo data */ }
-  // Only fall back to demo data on connection errors, not empty results
-  try { return getDemoAlerts().map(a => ({ ...a, id: a.alert_id })); } catch { return []; }
+  } catch { return []; }
 }
 
 export async function fetchAlertById(id: string): Promise<Alert | undefined> {
   try {
     return await apiRequest<Alert>(`/api/v1/dashboard/alerts/${id}`);
   } catch {
-    const demoAlerts = getDemoAlerts();
-    return demoAlerts.find(a => a.alert_id === id);
+    return undefined;
   }
 }
 
@@ -565,8 +547,7 @@ export async function fetchIncidents(): Promise<Incident[]> {
     const incidents = await safeFetch<Incident[]>('/api/v1/dashboard/incidents');
     if (incidents && incidents.length > 0) return incidents;
     return [];
-  } catch { /* fall through */ }
-  try { return getDemoIncidents(); } catch { return []; }
+  } catch { return []; }
 }
 
 export async function fetchIncidentById(id: string): Promise<Incident | undefined> {
@@ -596,22 +577,6 @@ export async function exportIncidentReport(incidentId: string): Promise<Blob> {
 
 // ===== Devices =====
 
-export async function seedDemoData(): Promise<{ status: string; message: string }> {
-  seedFrontendDemo();
-  try {
-    return await apiRequest('/api/v1/dashboard/seed', { method: 'POST' });
-  } catch {
-    return { status: 'ok', message: 'Demo data seeded (frontend fallback)' };
-  }
-}
-
-export async function simulateAttack(): Promise<{ status: string; message: string }> {
-  return apiRequest('/api/v1/pipeline/simulate-attack', { method: 'POST' });
-}
-
-export async function injectTestSoarActions(): Promise<{ status: string; actions_created: number; message: string }> {
-  return apiRequest('/api/v1/pipeline/test-soar-actions', { method: 'POST' });
-}
 
 export async function fetchPipelineStatus(): Promise<{
   running: boolean;
@@ -644,6 +609,7 @@ export async function fetchUserDevices(): Promise<Device[]> {
         last_heartbeat: (d.last_heartbeat as string) || undefined,
         tenant_id: (d.tenant_id as string) || '',
         is_active: (d.is_active as boolean) ?? true,
+        is_isolated: (d.is_isolated as boolean) ?? false,
         owner_id: (d.owner_id as string) || undefined,
       }));
     }
@@ -665,6 +631,7 @@ export async function fetchDevices(): Promise<Device[]> {
         last_heartbeat: (d.last_heartbeat as string) || undefined,
         tenant_id: (d.tenant_id as string) || '',
         is_active: (d.is_active as boolean) ?? true,
+        is_isolated: (d.is_isolated as boolean) ?? false,
         owner_id: (d.owner_id as string) || undefined,
       }));
     }
@@ -712,8 +679,7 @@ export async function fetchAuditLogs(): Promise<AuditLog[]> {
       }));
     }
     return [];
-  } catch { /* fall through */ }
-  try { return getDemoAuditLogs(); } catch { return []; }
+  } catch { return []; }
 }
 
 
@@ -724,8 +690,7 @@ export async function fetchLogs(): Promise<SystemLog[]> {
     const logs = await safeFetch<SystemLog[]>('/api/v1/dashboard/logs');
     if (logs && logs.length > 0) return logs;
     return [];
-  } catch { /* fall through */ }
-  try { return getDemoLogs(); } catch { return []; }
+  } catch { return []; }
 }
 
 
@@ -736,8 +701,7 @@ export async function fetchResponseActions(): Promise<ResponseAction[]> {
     const actions = await safeFetch<ResponseAction[]>('/api/v1/dashboard/response/actions');
     if (actions && actions.length > 0) return actions;
     return [];
-  } catch { /* fall through */ }
-  try { return getDemoResponseActions(); } catch { return []; }
+  } catch { return []; }
 }
 
 export async function executeAction(actionType: ActionType, target: string): Promise<ResponseAction> {
@@ -761,8 +725,7 @@ export async function fetchThreatIntel(): Promise<ThreatIntelItem[]> {
     const intel = await safeFetch<ThreatIntelItem[]>('/api/v1/dashboard/threat-intel');
     if (intel && intel.length > 0) return intel;
     return [];
-  } catch { /* fall through */ }
-  try { return getDemoThreatIntel(); } catch { return []; }
+  } catch { return []; }
 }
 
 export async function fetchGlobalFeed(): Promise<GlobalThreatFeed[]> {
@@ -770,8 +733,7 @@ export async function fetchGlobalFeed(): Promise<GlobalThreatFeed[]> {
     const feed = await safeFetch<GlobalThreatFeed[]>('/api/v1/dashboard/global-feed');
     if (feed && feed.length > 0) return feed;
     return [];
-  } catch { /* fall through */ }
-  try { return getDemoGlobalFeed(); } catch { return []; }
+  } catch { return []; }
 }
 
 
@@ -783,9 +745,7 @@ export async function fetchAIAnalysis(incidentId?: string): Promise<AIAnalysis> 
     const analysis = await safeFetch<AIAnalysis>(`/api/v1/dashboard/ai/analysis${params}`);
     if (analysis && analysis.summary && analysis.summary !== 'No incidents to analyze') return analysis;
   } catch { /* fall through */ }
-  try { return getDemoAIAnalysis(incidentId); } catch {
-    return { summary: 'No analysis available', attack_narrative: '', risk_assessment: '', recommended_actions: [], confidence: 0, timeline_reconstruction: [], mitre_techniques: [], affected_assets: [] };
-  }
+  return { summary: 'No analysis available', attack_narrative: '', risk_assessment: '', recommended_actions: [], confidence: 0, timeline_reconstruction: [], mitre_techniques: [], affected_assets: [] };
 }
 
 // ===== Billing =====

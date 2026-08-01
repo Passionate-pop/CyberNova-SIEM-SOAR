@@ -19,16 +19,19 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useFetch } from '../hooks/useFetch';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useAuthStore } from '../stores/useAuthStore';
-import { fetchMetrics, fetchAlerts, fetchDevices, fetchUserDevices, blockIP, isolateDevice, executeAction, seedDemoData } from '../services/api';
-import { LiveAttackDemo } from '../components/demo/LiveAttackDemo';
+import { fetchMetrics, fetchAlerts, fetchDevices, fetchUserDevices, blockIP, isolateDevice, executeAction, markAlertSafe } from '../services/api';
+import { resolveUserPurpose, resolveUserRole, resolveOrgType } from '../utils/userResolve';
 
 type ProtectionStatus = 'protected' | 'warning' | 'compromised';
 
 export function Dashboard() {
   const { token, user } = useAuthStore();
-  const purpose = user?.purpose || localStorage.getItem('cybernova_purpose') || 'individual';
-  const isAdmin = user?.role === 'admin';
+  const purpose = resolveUserPurpose(user);
+  const role = resolveUserRole(user);
+  const orgType = resolveOrgType(user);
   const isOrg = purpose === 'organization';
+  const isAdmin = role === 'admin';
+  const isBoss = isOrg && (orgType === 'boss' || isAdmin);
 
   // Data fetching — only call admin endpoints for admin users
   const { data: metrics, refetch: refetchMetrics } = useFetch(useCallback(() => fetchMetrics(), []));
@@ -61,28 +64,39 @@ export function Dashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: string; alert: any } | null>(null);
-  const [seeding, setSeeding] = useState(false);
-  const [showLiveDemo, setShowLiveDemo] = useState(false);
 
   useEffect(() => { setLastUpdated(new Date().toLocaleTimeString()); }, [alerts]);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); } }, [toast]);
 
-  // Derive device status from alerts
+  // Derived metrics — declare BEFORE any hooks that depend on them
+  const totalDevices = devices?.length || 0;
+  const devicesAtRisk = devices?.filter((d: any) => d.is_isolated === true).length || 0;
+  const securityScore = Math.max(0, 100 - (metrics?.risk_score || 0));
+
+  // Derive device status from alerts — only unresolved (new/in_progress/correlated) alerts matter
+  const unresolvedAlerts = (alerts || []).filter((a: any) => {
+    const s = (a.status || 'new').toLowerCase();
+    return s === 'new' || s === 'in_progress' || s === 'correlated';
+  });
+  const unresolvedCriticalOrHigh = unresolvedAlerts.filter((a: any) =>
+    a.severity === 'critical' || a.severity === 'high'
+  );
+  const activeThreats = unresolvedCriticalOrHigh.length;
+
   useEffect(() => {
-    if (alerts && alerts.length > 0) {
-      const hasCritical = alerts.some((a: any) => a.severity === 'critical');
-      const hasHigh = alerts.some((a: any) => a.severity === 'high');
-      setDeviceStatus(hasCritical ? 'compromised' : hasHigh ? 'warning' : 'protected');
+    // Always consider the security score first — if score shows at-risk, reflect that
+    if (securityScore < 40) {
+      setDeviceStatus('compromised');
+    } else if (securityScore < 70) {
+      setDeviceStatus('warning');
+    } else if (unresolvedCriticalOrHigh.length > 0) {
+      const hasCritical = unresolvedCriticalOrHigh.some((a: any) => a.severity === 'critical');
+      setDeviceStatus(hasCritical ? 'compromised' : 'warning');
     } else {
       setDeviceStatus('protected');
     }
-  }, [alerts]);
+  }, [securityScore, unresolvedCriticalOrHigh]);
 
-  // Derived metrics
-  const totalDevices = devices?.length || 0;
-  const activeThreats = alerts?.filter((a: any) => a.severity === 'critical' || a.severity === 'high').length || 0;
-  const devicesAtRisk = devices?.filter((d: any) => d.status === 'isolated' || d.status === 'error').length || 0;
-  const securityScore = Math.max(0, 100 - (metrics?.risk_score || 0));
   const currentDevice = devices?.find((d: any) => d.status === 'active');
 
   // Status color based on device protection state
@@ -104,28 +118,24 @@ export function Dashboard() {
     }
   };
 
-  // Actions
-  const handleSeedData = async () => {
-    setSeeding(true);
-    try {
-      await seedDemoData();
-      setToast({ message: 'Demo data seeded successfully', type: 'success' });
-      refetchAlerts();
-      refetchDevices();
-      refetchMetrics();
-    } catch (e) {
-      setToast({ message: `Seed failed: ${e instanceof Error ? e.message : 'error'}`, type: 'error' });
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   const handleAction = async (alert: any, actionType: string) => {
     setActionLoading(actionType);
     try {
       if (actionType === 'block_ip') {
-        await blockIP(alert.source_ip || 'unknown', 'Dashboard block');
-        setToast({ message: `IP ${alert.source_ip} blocked`, type: 'success' });
+        try {
+          await blockIP(alert.source_ip || 'unknown', 'Dashboard block');
+          setToast({ message: `IP ${alert.source_ip} blocked`, type: 'success' });
+        } catch (blockErr) {
+          const msg = blockErr instanceof Error ? blockErr.message : '';
+          if (msg.toLowerCase().includes('already blocked')) {
+            // IP already blocked by a previous action — treat as success, not error
+            setToast({ message: `IP ${alert.source_ip} already blocked`, type: 'success' });
+          } else {
+            throw blockErr;
+          }
+        }
+        // Mark the alert as safe so it no longer shows as an unresolved threat
+        try { await markAlertSafe(alert.alert_id || alert.id); } catch { /* non-critical */ }
       } else if (actionType === 'isolate') {
         const dev = devices?.find((d: any) => d.ip_address === alert.source_ip);
         if (dev) {
@@ -140,6 +150,7 @@ export function Dashboard() {
       }
       refetchAlerts();
       refetchMetrics();
+      refetchDevices();
     } catch (e) {
       setToast({ message: `Action failed: ${e instanceof Error ? e.message : 'error'}`, type: 'error' });
     } finally {
@@ -192,20 +203,7 @@ export function Dashboard() {
           </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {isAdmin && (
-            <>
-              <button onClick={handleSeedData} disabled={seeding}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs font-medium hover:bg-cyan-500/30 transition-colors disabled:opacity-50">
-                <Zap size={14} className={seeding ? 'animate-spin' : ''} />
-                {seeding ? 'Seeding...' : 'Seed Demo Data'}
-              </button>
-              <button onClick={() => setShowLiveDemo(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold hover:from-red-500 hover:to-rose-500 transition-all shadow-lg shadow-red-500/25">
-                <AlertTriangle size={14} className="animate-pulse" />
-                Live Attack Demo
-              </button>
-            </>
-          )}
+
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-400">
             <Wifi size={14} />
             <span className="text-xs font-medium">Real-time ON</span>
@@ -323,8 +321,8 @@ export function Dashboard() {
       {/* ── Main Content Grid ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Device Info / All Servers (org admin) or My Device (individual/staff) */}
-        <Card title={isAdmin && isOrg ? 'Connected Servers' : 'My Device'} subtitle={isAdmin && isOrg ? `${totalDevices} server${totalDevices !== 1 ? 's' : ''} in your organization` : 'Current device status'} className="lg:col-span-1">
-          {isAdmin && isOrg ? (
+        <Card title={isBoss ? 'Connected Servers' : 'My Device'} subtitle={isBoss ? `${totalDevices} server${totalDevices !== 1 ? 's' : ''} in your organization` : 'Current device status'} className="lg:col-span-1">
+          {isBoss ? (
             devicesLoading ? (
               <div className="flex items-center justify-center h-48"><LoadingSpinner /></div>
             ) : devices && devices.length > 0 ? (
@@ -447,9 +445,9 @@ export function Dashboard() {
               <CheckCircle size={32} className="text-emerald-500 mb-3" />
               <p className="text-sm text-white font-medium">All Clear</p>
               <p className="text-xs text-gray-500 mt-1">
-                {isAdmin ? 'Click "Seed Demo Data" or "Simulate Attack" to populate alerts' : 'No alerts detected on your device'}
+                {isAdmin ? 'Install the CyberNova agent on your devices to begin monitoring' : 'No alerts detected on your device'}
               </p>
-              {isAdmin && (
+              {isBoss && (
                 <div className="mt-4 flex gap-2 text-xs text-gray-600">
                   <span className="px-2 py-1 rounded bg-[#111827]">Real-time monitoring active</span>
                   <span className="px-2 py-1 rounded bg-[#111827]">Threat signatures up to date</span>
@@ -498,14 +496,6 @@ export function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* ── Live Attack Demo Overlay ──────────────────────────────── */}
-      <LiveAttackDemo
-        isOpen={showLiveDemo}
-        onClose={() => setShowLiveDemo(false)}
-        onAlertsRefetch={refetchAlerts}
-        onMetricsRefetch={refetchMetrics}
-      />
 
       {/* ── Confirm Dialog ────────────────────────────────────────── */}
       <ConfirmDialog

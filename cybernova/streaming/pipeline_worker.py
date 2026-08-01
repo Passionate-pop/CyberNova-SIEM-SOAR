@@ -272,10 +272,22 @@ class PipelineWorker:
             dest_ip = enriched.get("dest_ip", "")
 
             if source_ip:
-                enriched["geo"] = await geoip_service.lookup(source_ip)
-                enriched["threat_intel"] = await threat_intel_service.lookup_ip(source_ip)
+                try:
+                    enriched["geo"] = await asyncio.wait_for(geoip_service.lookup(source_ip), timeout=3.0)
+                except asyncio.TimeoutError:
+                    log.warning("GeoIP lookup timed out for %s in worker", source_ip)
+                    enriched["geo"] = {}
+                try:
+                    enriched["threat_intel"] = await asyncio.wait_for(threat_intel_service.lookup_ip(source_ip), timeout=3.0)
+                except asyncio.TimeoutError:
+                    log.warning("Threat intel lookup timed out for %s in worker", source_ip)
+                    enriched["threat_intel"] = {}
             if dest_ip:
-                enriched["geo_dest"] = await geoip_service.lookup(dest_ip)
+                try:
+                    enriched["geo_dest"] = await asyncio.wait_for(geoip_service.lookup(dest_ip), timeout=3.0)
+                except asyncio.TimeoutError:
+                    log.warning("GeoIP dest lookup timed out for %s in worker", dest_ip)
+                    enriched["geo_dest"] = {}
 
             enriched["enriched_at"] = datetime.now(timezone.utc).isoformat()
             enriched["enrichment_sources"] = ["geoip", "threat_intel"]
@@ -456,16 +468,90 @@ class PipelineWorker:
             log.error("Detection failed for %s: %s", enriched_event_id, exc)
             await self.producer.send_to_dlq(STREAM_ENRICHED, enriched_event_id, str(exc), event)
 
+    async def _save_alert_to_db(self, alert: Dict[str, Any]) -> Optional[str]:
+        """Persist an alert dict directly to the alerts table.
+        Returns the alert id on success, None on failure.
+        Uses upsert (merge) to handle re-processed messages from stream."""
+        from cybernova.database.postgres.models import Alert
+        from cybernova.database.postgres.session import get_db_session
+        async for db in get_db_session():
+            try:
+                alert_id = alert.get("id", str(uuid4()))
+
+                # Check if already exists (prevents PK violation on re-process)
+                existing = await db.get(Alert, alert_id)
+                if existing:
+                    log.debug("Alert already exists in DB: %s", alert_id)
+                    return alert_id
+
+                now = datetime.now(timezone.utc)
+                # alert dict from stream has threat_intel/geo/raw_event at top level
+                # reconstruct extra_data from those top-level fields
+                extra_data = alert.get("extra_data") or {
+                    "threat_intel": alert.get("threat_intel", {}),
+                    "geo": alert.get("geo", {}),
+                    "enrichment_sources": alert.get("enrichment_sources", []),
+                    "alert_reason": alert.get("alert_reason", ""),
+                }
+
+                record = Alert(
+                    id=alert_id,
+                    tenant_id=alert.get("tenant_id", "default"),
+                    rule_name=alert.get("rule_name", "unknown"),
+                    severity=alert.get("severity", "medium"),
+                    risk_score=alert.get("risk_score", 0.0),
+                    description=alert.get("description", ""),
+                    status=alert.get("status", "new"),
+                    source_ip=alert.get("source_ip", ""),
+                    dest_ip=alert.get("dest_ip", ""),
+                    user=alert.get("user", ""),
+                    event_type=alert.get("event_type", ""),
+                    event_id=alert.get("event_id", ""),
+                    device_id=alert.get("device_id", ""),
+                    extra_data=extra_data,
+                    raw_event=alert.get("raw_event", None),
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(record)
+                await db.commit()
+                log.debug("Alert saved to DB: %s [%s]", alert.get("rule_name"), alert_id)
+                return alert_id
+            except Exception as exc:
+                log.error("Failed to save alert to DB: %s", exc)
+                await db.rollback()
+                return None
+
     async def _process_alert(self, tenant_id: str, alert: Dict[str, Any], envelope: Dict[str, Any]) -> None:
         from cybernova.detection.correlation_engine.correlation_service import correlation_service
         from cybernova.response.policy_engine.playbooks import match_playbook
         from cybernova.response.automation.engine import playbook_engine
 
         try:
+            # ── Persist alert to DB FIRST (bypasses detection worker's broken batch flush) ──
+            alert_id = await self._save_alert_to_db(alert)
+            if alert_id:
+                alert["id"] = alert_id
+
+            # ── Correlate alerts → incidents ──
             incidents = await correlation_service.correlate_alerts([alert], tenant_id)
             for incident in incidents:
-                await self.producer.produce_incident(incident, tenant_id)
-                log.info("Incident created: %s", incident.get("id"))
+                # incident may be an ORM object or dict; normalize to dict for produce
+                if hasattr(incident, "id"):
+                    incident_dict = {
+                        "id": incident.id,
+                        "tenant_id": getattr(incident, "tenant_id", tenant_id),
+                        "title": getattr(incident, "title", ""),
+                        "severity": getattr(incident, "severity", "medium"),
+                        "status": getattr(incident, "status", "new"),
+                        "risk_score": getattr(incident, "risk_score", 0.0),
+                        "description": getattr(incident, "description", ""),
+                        "created_at": getattr(incident, "created_at", datetime.now(timezone.utc)).isoformat() if hasattr(getattr(incident, "created_at", None), "isoformat") else str(getattr(incident, "created_at", "")),
+                    }
+                else:
+                    incident_dict = incident
+                await self.producer.produce_incident(incident_dict, tenant_id)
+                log.info("Incident created: %s", incident_dict.get("id"))
 
             context = {
                 "alert": alert,

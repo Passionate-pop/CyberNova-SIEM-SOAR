@@ -8,6 +8,10 @@
 # Password/secret files — never commit
 secretsadmin_password.txt
 
+# Local login/session tokens (JWT) — never commit
+login.json
+login*.json
+
 # JWT tokens — never commit live tokens
 token.txt
 token_saved.txt

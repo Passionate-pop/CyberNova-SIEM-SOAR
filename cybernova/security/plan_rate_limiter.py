@@ -339,11 +339,15 @@ class PlanRateLimitMiddleware(BaseHTTPMiddleware):
             # Redis error — fall back to in-memory
             log.debug("Redis rate limit error %s, falling back to in-memory: key=%s", e, rate_key)
             return self._check_memory(key_prefix, category, limit)
+        except Exception as e:
+            # Catch BusyLoadingError (Redis loading dataset), ResponseError, etc.
+            log.warning("Redis rate limit unexpected error %s: %s, falling back to in-memory", type(e).__name__, e)
+            return self._check_memory(key_prefix, category, limit)
         finally:
             if pipe is not None:
                 try:
                     await pipe.reset()
-                except (ConnectionError, TimeoutError):
+                except Exception:
                     pass  # best-effort cleanup
 
     def _check_memory(

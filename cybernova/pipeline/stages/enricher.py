@@ -170,7 +170,10 @@ class EnrichmentStage(PipelineStage):
         if not ip:
             return {}
         try:
-            return await geoip_service.lookup(ip)
+            return await asyncio.wait_for(geoip_service.lookup(ip), timeout=3.0)
+        except asyncio.TimeoutError:
+            log.warning("GeoIP lookup timed out for %s", ip)
+            return {}
         except Exception as e:
             log.debug("GeoIP lookup failed for %s: %s", ip, e)
             return {}
@@ -179,7 +182,10 @@ class EnrichmentStage(PipelineStage):
         if not ip:
             return {}
         try:
-            return await threat_intel_service.lookup_ip(ip)
+            return await asyncio.wait_for(threat_intel_service.lookup_ip(ip), timeout=3.0)
+        except asyncio.TimeoutError:
+            log.warning("Threat intel lookup timed out for %s", ip)
+            return {}
         except Exception as e:
             log.debug("Threat intel lookup failed for %s: %s", ip, e)
             return {}

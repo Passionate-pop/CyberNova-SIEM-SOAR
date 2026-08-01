@@ -144,6 +144,27 @@ class NotificationStage(PipelineStage):
             log.debug("In-app notification created: %s for tenant=%s", rule_name, tenant_id)
             break
 
+        # Broadcast SYSTEM_NOTIFICATION over WebSocket for real-time bell icon update
+        try:
+            from cybernova.api.websocket import ws_handler, WebSocketMessage, EventType
+            ws_notif = WebSocketMessage(
+                event_type=EventType.SYSTEM_NOTIFICATION,
+                data={
+                    "id": notification.id,
+                    "type": type_map.get(severity, "info"),
+                    "title": notification.title,
+                    "message": notification.message or "",
+                    "timestamp": notification.created_at.isoformat() if notification.created_at else "",
+                },
+                tenant_id=tenant_id,
+            )
+            await ws_handler._manager.send_to_tenant(
+                tenant_id, ws_notif, {EventType.SYSTEM_NOTIFICATION},
+            )
+            log.debug("SYSTEM_NOTIFICATION broadcast for %s", rule_name)
+        except Exception as e:
+            log.warning("SYSTEM_NOTIFICATION broadcast failed: %s", e)
+
     async def _send_slack(self, alert: Dict[str, Any], settings) -> None:
         """Send alert notification to Slack webhook."""
         try:
