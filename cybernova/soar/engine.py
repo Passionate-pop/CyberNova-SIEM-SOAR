@@ -1,7 +1,7 @@
 """
 CyberNova SOAR Engine (Patch E)
 Implements: incident-triggered response, NOT alert-triggered
-Only fires on CONFIRMED incidents with CRITICAL severity
+Only fires on CONFIRMED incidents with CRITICAL/HIGH severity or risk_score >= 50
 """
 from __future__ import annotations
 
