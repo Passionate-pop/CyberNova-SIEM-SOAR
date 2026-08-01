@@ -8,7 +8,7 @@ import {
   Shield, ShieldCheck, ShieldAlert, ShieldX,
   Activity, CheckCircle, Clock,
   Monitor, AlertTriangle, Globe, Ban, MonitorOff,
-  Gauge, Zap, FileScan,
+  Gauge, FileScan,
   Wifi,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
