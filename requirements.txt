@@ -45,7 +45,7 @@ pydantic-settings==2.14.1
 pydantic-core==2.46.4
 python-dotenv==1.2.2
 python-jose==3.5.0
-python-json-logger==3.2.1
+python-json-logger==4.1.0
 python-multipart==0.0.29
 PyYAML==6.0.3
 redis==7.4.0
