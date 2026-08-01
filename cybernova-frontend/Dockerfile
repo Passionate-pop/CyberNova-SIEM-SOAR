@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # ── Stage 2: Serve ───────────────────────────────────────────
-FROM nginx:1.25-alpine
+FROM nginx:1.31-alpine
 
 # Drop root — nginx runs as non-root user in alpine by default
 COPY --from=builder /app/dist /usr/share/nginx/html
