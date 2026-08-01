@@ -1137,6 +1137,31 @@ async def main():
 import pytest
 
 
+def _server_reachable(timeout: float = 2.0) -> bool:
+    """Return True if a CyberNova server is listening at TARGET."""
+    import socket
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(TARGET)
+    host = parts.hostname or "localhost"
+    port = parts.port or 80
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+# These tests are live penetration tests that require a running CyberNova
+# server (e.g. the docker-compose stack). In CI jobs with no server, they
+# are skipped instead of failing on connection errors.
+NEEDS_LIVE_SERVER = pytest.mark.skipif(
+    not _server_reachable(),
+    reason=f"Requires a running CyberNova server at {TARGET} (live integration test)",
+)
+
+
+@NEEDS_LIVE_SERVER
 @pytest.mark.asyncio
 async def test_real_world_authentication_attacks():
     """JWT attacks, password spraying, race conditions."""
@@ -1150,6 +1175,7 @@ async def test_real_world_authentication_attacks():
     assert len(critical) == 0, f"Found {len(critical)} critical/high auth vulnerabilities: {[f.name for f in critical]}"
 
 
+@NEEDS_LIVE_SERVER
 @pytest.mark.asyncio
 async def test_real_world_injection_attacks():
     """NoSQLi, SSTI, CRLF injection."""
@@ -1162,6 +1188,7 @@ async def test_real_world_injection_attacks():
     assert len(critical) == 0, f"Found {len(critical)} critical/high injection vulnerabilities: {[f.name for f in critical]}"
 
 
+@NEEDS_LIVE_SERVER
 @pytest.mark.asyncio
 async def test_real_world_waf_bypass():
     """WAF bypass techniques."""
@@ -1172,6 +1199,7 @@ async def test_real_world_waf_bypass():
     assert len(critical) == 0, f"Found {len(critical)} critical/high WAF bypass issues: {[f.name for f in critical]}"
 
 
+@NEEDS_LIVE_SERVER
 @pytest.mark.asyncio
 async def test_real_world_info_disclosure():
     """Information disclosure checks."""
@@ -1200,6 +1228,7 @@ async def test_real_world_rate_limiting():
     assert len(high) == 0, f"Found {len(high)} high severity rate limiting issues: {[f.name for f in high]}"
 
 
+@NEEDS_LIVE_SERVER
 @pytest.mark.asyncio
 async def test_real_world_mass_assignment():
     """Mass assignment protection."""

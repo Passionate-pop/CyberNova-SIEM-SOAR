@@ -70,7 +70,6 @@ def _make_fuzz_app(sf: async_sessionmaker) -> FastAPI:
     from cybernova.response.automation.router import router as automation_router
     from cybernova.api.routes.playbook_routes import router as playbook_routes_router
     from cybernova.ingestion.routes.agent_ingest import router as agent_ingest_router
-    from cybernova.api.routes.demo import router as demo_router
     from cybernova.api.routes.notifications_router import router as notifications_router
     from cybernova.api.routes.agent_download import router as agent_download_router
     from cybernova.api.routes.agent_auth import router as agent_auth_router
@@ -122,7 +121,7 @@ def _make_fuzz_app(sf: async_sessionmaker) -> FastAPI:
         pipeline_router, audit_router, org_router,
         admin_devices_router, policy_admin_router, dlq_router, metrics_router,
         analytics_router, setup_router, soar_router, agent_ingest_router,
-        demo_router, agent_auth_router, agent_heartbeat_router,
+        agent_auth_router, agent_heartbeat_router,
         agent_commands_router, agent_update_router, agent_download_router,
         noise_router, notifications_router, agent_receiver_router,
         agent_telemetry_router, threat_intel_feeds_router, anomaly_router,
