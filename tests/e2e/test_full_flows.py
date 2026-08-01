@@ -211,8 +211,25 @@ class TestStaffFlow:
 
         assert (await client.get("/api/v1/dashboard/summary", headers=headers)).status_code == 200
         assert (await client.get("/api/v1/dashboard/alerts", headers=headers)).status_code == 200
-        users_resp = await client.get("/api/v1/admin/users", headers=headers)
-        assert users_resp.status_code in (401, 403)
+        # Viewers hold USERS_VIEW by design (org staff need read access to
+        # users/devices — see ROLE_PERMISSIONS in auth/rbac.py).
+        assert (await client.get("/api/v1/admin/users", headers=headers)).status_code == 200
+        # ...but they must NOT be able to mutate users (viewer role lacks
+        # USERS_CREATE / USERS_UPDATE / USERS_DELETE).
+        create_resp = await client.post(
+            "/api/v1/admin/users/", headers=headers,
+            json={"username": "evil_hacker", "email": "evil@limited.com",
+                  "password": "Str0ng!Evil1", "roles": ["viewer"]},
+        )
+        assert create_resp.status_code == 403, create_resp.text
+        update_resp = await client.put(
+            "/api/v1/admin/users/fake-id", headers=headers,
+            json={"email": "pwned@limited.com"},
+        )
+        assert update_resp.status_code == 403, update_resp.text
+        delete_resp = await client.delete(
+            "/api/v1/admin/users/fake-id", headers=headers)
+        assert delete_resp.status_code == 403, delete_resp.text
 
     async def test_full_staff_journey(self, client):
         """boss creates org → staff joins → staff uses dashboard → boss also works"""
