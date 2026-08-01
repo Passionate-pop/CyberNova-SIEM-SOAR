@@ -4,8 +4,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install deps first (layer caching — only re-runs when package.json changes)
+# NOTE: use `npm install` (not `npm ci`) so platform-specific optional deps
+# (e.g. @rollup/rollup-linux-x64-musl) resolve correctly on alpine/musl.
+# `npm ci --ignore-scripts` hits npm/cli#4828 and fails the rollup native import.
 COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci --ignore-scripts --no-audit --no-fund; else npm install --ignore-scripts --no-audit --no-fund; fi
+RUN npm install --no-audit --no-fund
 
 # Copy source and build
 # In Docker, the unified nginx always proxies /app/ -> frontend (strips prefix),

@@ -54,7 +54,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
       - run: |
-          pip install pytest pytest-asyncio httpx
+          pip install pytest pytest-asyncio httpx pytest-timeout
           pip install -r requirements.txt
       - name: Run unit tests
         env:
@@ -97,7 +97,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
       - run: |
-          pip install pytest pytest-asyncio httpx pytest-cov
+          pip install pytest pytest-asyncio httpx pytest-cov pytest-timeout
           pip install -r requirements.txt
       - name: Run integration tests
         env:
@@ -151,7 +151,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
       - run: |
-          pip install pytest pytest-asyncio httpx
+          pip install pytest pytest-asyncio httpx pytest-timeout
           pip install -r requirements.txt
       - name: Run e2e tests
         env:
