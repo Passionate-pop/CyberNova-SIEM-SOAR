@@ -339,13 +339,15 @@ class TestSoarEngine:
             result = engine.should_trigger({"confirmed": False, "severity": "low", "risk_score": 10})
             assert result is False
 
-    def test_should_trigger_true_critical_auto_confirms(self):
-        """Critical severity should auto-confirm even when confirmed=False."""
+    def test_should_trigger_false_critical_unconfirmed(self):
+        """Critical severity must NOT trigger when confirmed=False — SOAR never
+        auto-confirms; autonomous actions only fire on explicitly confirmed
+        incidents (see tests/test_soar.py::test_soar_engine_should_not_trigger_unconfirmed)."""
         with patch.dict("os.environ", {"CYBERNOVA_SOAR_ENABLED": "true", "CYBERNOVA_SOAR_ACTIONS": "log"}, clear=True):
             from cybernova.soar.engine import SoarEngine
             engine = SoarEngine()
             result = engine.should_trigger({"confirmed": False, "severity": "critical"})
-            assert result is True
+            assert result is False
 
     def test_should_trigger_true_critical_confirmed(self):
         with patch.dict("os.environ", {"CYBERNOVA_SOAR_ENABLED": "true", "CYBERNOVA_SOAR_ACTIONS": "log"}, clear=True):
