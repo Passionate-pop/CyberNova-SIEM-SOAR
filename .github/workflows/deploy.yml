@@ -122,6 +122,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
+      - run: pip install pytest pytest-asyncio httpx pytest-timeout
       - run: pip install -r requirements.txt
       - name: Smoke tests
         env:
@@ -214,7 +215,7 @@ jobs:
     steps:
       - name: Run E2E tests against deployed environment
         run: |
-          pip install pytest pytest-asyncio httpx websockets
+          pip install pytest pytest-asyncio httpx websockets pytest-timeout
           python -m pytest tests/e2e/ -v --timeout=180 \
             --base-url https://${{ needs.prepare.outputs.environment }}.cybernova.io
         env:
