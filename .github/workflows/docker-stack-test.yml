@@ -70,13 +70,15 @@ jobs:
 
       - name: Test backend health via nginx
         run: |
+          # nginx is mapped to host port 8080 in docker-compose.yml (8080:80);
+          # the backend itself is on 8000. Health checks go through nginx.
           echo "=== Health ==="
-          curl -sf http://localhost:8888/health | head -c 200
+          curl -sf http://localhost:8080/health | head -c 200
           echo ""
           echo "=== Ready ==="
-          curl -sf http://localhost:8888/ready -w " HTTP:%{http_code}\n" -o /dev/null
+          curl -sf http://localhost:8080/ready -w " HTTP:%{http_code}\n" -o /dev/null
           echo "=== Frontend ==="
-          curl -sf http://localhost:8888/app/ -w " HTTP:%{http_code}\n" -o /dev/null
+          curl -sf http://localhost:8080/app/ -w " HTTP:%{http_code}\n" -o /dev/null
           echo "=== Prometheus ==="
           curl -sf http://localhost:9090/-/ready -w " HTTP:%{http_code}\n" -o /dev/null
           echo "=== Alertmanager ==="
