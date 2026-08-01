@@ -1,13 +1,37 @@
-# 🛡️ CyberNova — AI-Powered Security Platform
+<div align="center">
+
+# 🛡️ CyberNova
+
+### AI-Powered Open-Source SIEM + SOAR + EDR Security Platform
+
+*Think like a hacker. Respond like a security chief. Built on zero-trust architecture.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](requirements.txt)
-[![FastAPI](https://img.shields.io/badge/FastAPI-async-green.svg)](cybernova/main.py)
-[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](cybernova-frontend/package.json)
-[![Docker](https://img.shields.io/badge/Docker-compose-2496ed.svg)](docker-compose.yml)
-[![MITRE ATT&CK](https://img.shields.io/badge/MITRE%20ATT%26CK-mapped-ff4500.svg)](SECURITY.md)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-green.svg)](cybernova/main.py)
+[![React](https://img.shields.io/badge/React-19-61dafb.svg)](cybernova-frontend/package.json)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ed.svg)](docker-compose.yml)
+[![Helm](https://img.shields.io/badge/Helm-Kubernetes-0f1689.svg)](helm/)
+[![Tests](https://img.shields.io/badge/Tests-886%2B-2ea44f.svg)](tests/)
+[![MITRE ATT&CK](https://img.shields.io/badge/MITRE%20ATT%26CK-441%20rules-ff4500.svg)](SECURITY.md)
 
-**Open-source SIEM + SOAR + EDR. 658+ detection rules, 17 protection shields, 441 Sigma rules mapped to MITRE ATT&CK, auto-responds via SOAR playbooks.**
+**658+ detection rules · 17 protection shields · 441 Sigma rules mapped to MITRE ATT&CK · automated SOAR playbooks**
+
+</div>
+
+---
+
+## ✨ What is CyberNova?
+
+CyberNova is a **complete, production-grade security platform** that unifies three disciplines into one zero-trust system:
+
+| Layer | What it does |
+|-------|-------------|
+| **🛰️ SIEM** | Ingests, normalizes, enriches and correlates security events from 40+ sources in real time |
+| **🤖 SOAR** | Automates incident response with policy-driven playbooks — block, isolate, notify, investigate |
+| **🖥️ EDR** | Detects and responds to endpoint threats with native Windows & Linux agents and kernel drivers |
+
+It ships with a **3D marketing website**, a **real-time React dashboard**, a **REST + WebSocket API**, **Prometheus/Grafana monitoring**, and **Helm charts** for Kubernetes.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -29,7 +53,7 @@
 
 ## 🚀 Quick Start
 
-### Option A: Docker (Linux/Mac/Windows) — recommended
+### Option A: Docker (recommended)
 
 ```bash
 # 1. Clone the repo
@@ -45,10 +69,10 @@ docker compose up -d --build
 
 # 4. Open in browser
 # Marketing site:  http://localhost:8080
-# Dashboard:        http://localhost:8080/app/
-# API docs:         http://localhost:8000/docs
-# Grafana:          http://localhost:3001   (admin / GRAFANA_PASSWORD)
-# MailHog (dev):    http://localhost:8025
+# Dashboard:       http://localhost:8080/app/
+# API docs:        http://localhost:8000/docs
+# Grafana:         http://localhost:3001   (admin / GRAFANA_PASSWORD)
+# MailHog (dev):   http://localhost:8025
 ```
 
 ### Option B: Helm (Kubernetes)
@@ -66,6 +90,9 @@ uvicorn cybernova.main:app --host 0.0.0.0 --port 8000
 
 # Frontend (Vite dev server)
 cd cybernova-frontend && npm install && npm run dev
+
+# Marketing site (Next.js)
+cd web-page && npm install && npm run dev
 ```
 
 ---
@@ -100,6 +127,7 @@ cd cybernova-frontend && npm install && npm run dev
 - **Real-time pipeline**: Ingest → Normalize → Enrich → Detect → Alert
 - **50+ detection rules** + 17 protection modules + WAF (SQLi, XSS, CMDi, LFI, SSRF, LDAPi)
 - **18 Prometheus alert rules** for infrastructure monitoring
+- **Correlation engine** for multi-stage attack chains
 
 ### SOAR — Security Orchestration, Automation & Response
 
@@ -112,6 +140,7 @@ cd cybernova-frontend && npm install && npm run dev
 
 - **Windows agent**: Processes, files, downloads, USB, PowerShell, registry, services, security event logs
 - **Linux agent**: USB monitoring, keyloggers, FIM, memory YARA scanning, stego, rootkits, cryptojacking
+- **Kernel-level drivers** for both platforms (`cybernova-driver/`)
 
 ---
 
@@ -171,8 +200,6 @@ Agent/Source → Ingestion → Normalization → Enrichment → Detection → Co
 
 Full OpenAPI docs at `http://localhost:8000/docs`
 
-### Key Endpoints
-
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/v1/auth/login` | POST | JWT login |
@@ -188,16 +215,18 @@ Full OpenAPI docs at `http://localhost:8000/docs`
 
 ## 🔌 Integrations (13+)
 
-Slack, Teams, PagerDuty, Jira, Splunk, MISP, TheHive, OpenCTI, VirusTotal, AbuseIPDB, AlienVault OTX, MaxMind GeoIP
+Slack · Teams · PagerDuty · Jira · Splunk · MISP · TheHive · OpenCTI · VirusTotal · AbuseIPDB · AlienVault OTX · MaxMind GeoIP
 
-All gracefully degrade when unconfigured.
+All integrations **gracefully degrade** when unconfigured.
 
 ---
 
 ## 🧪 Testing
 
+886+ automated test functions across unit, integration, e2e, security, and chaos suites.
+
 ```bash
-# Unit tests (434+ tests)
+# Unit tests
 python -m pytest tests/unit/ -v
 
 # Integration tests
@@ -209,21 +238,23 @@ python -m pytest tests/e2e/ -v
 # Security tests
 python -m pytest tests/security/ -v
 
-# Frontend tests
-cd cybernova-frontend && npm test
+# Chaos tests
+python -m pytest tests/chaos/ -v
 
-# Frontend typecheck
-cd cybernova-frontend && npx tsc --noEmit
+# Frontend tests + typecheck
+cd cybernova-frontend && npm test && npx tsc --noEmit
 ```
 
 ---
 
-## 📊 Monitoring
+## 📊 Monitoring & Observability
 
 - **Prometheus** metrics at `/metrics` — pipeline throughput, latency, error rates
 - **Grafana** dashboards — auto-provisioned with pre-built panels
 - **Alertmanager** — email, Slack, webhook routing
 - **SLA metrics** — P50/P90/P99 latency, availability, queue depths
+- **OpenTelemetry tracing** across the pipeline
+- **Chaos-tested** resilience (network partitions, leader election, pipeline failures)
 
 ---
 
@@ -243,7 +274,7 @@ cybernova/
 ├── cybernova-frontend/     # React dashboard (Vite + Tailwind)
 ├── web-page/               # Marketing site (Next.js)
 ├── cybernova-driver/       # Kernel modules (Linux/Windows)
-├── tests/                  # Test suites
+├── tests/                  # 886+ tests (unit, integration, e2e, security, chaos)
 ├── scripts/                # Deployment & utility scripts
 ├── monitoring/             # Prometheus, Grafana configs
 ├── nginx/                  # Reverse proxy configs
@@ -253,7 +284,23 @@ cybernova/
 
 ---
 
+## 📚 Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [SECURITY.md](SECURITY.md) | Attack coverage & security posture |
+| [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) | Production deployment checklist |
+| [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md) | Deployment runbook |
+| [docs/DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md) | Developer guide |
+| [docs/RUNBOOKS.md](docs/RUNBOOKS.md) | Operational runbooks |
+| [docs/PRODUCT_ROADMAP.md](docs/PRODUCT_ROADMAP.md) | Roadmap |
+| [helm/](helm/) | Kubernetes deployment |
+
+---
+
 ## 🤝 Contributing
+
+We welcome contributions from the security community!
 
 1. Fork the repo (`https://github.com/Passionate-pop/CyberNova-SIEM-SOAR`)
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -262,10 +309,17 @@ cybernova/
 5. Open a Pull Request
 
 Please make sure your changes pass the test suite before opening a PR:
+
 ```bash
 python -m pytest tests/unit -v
 cd cybernova-frontend && npx tsc --noEmit
 ```
+
+---
+
+## 🛡️ Security
+
+Found a vulnerability? Please do **not** open a public issue. Report it responsibly via the [SECURITY.md](SECURITY.md) process.
 
 ---
 
@@ -275,14 +329,16 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-## 🔗 Links
+## ⭐ Show Your Support
 
-- **Security & Attack Coverage**: [SECURITY.md](SECURITY.md)
-- **Documentation**: [docs/](docs/)
-- **API Reference**: `http://localhost:8000/docs`
-- **Deployment Guide**: [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
-- **Developer Reference**: [docs/DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md)
+If CyberNova helps you, please give the repo a ⭐ — it helps the project grow and reach more defenders. 🙌
 
 ---
 
+<div align="center">
+
 **Built with ❤️ for the security community.**
+
+[Report a Bug](https://github.com/Passionate-pop/CyberNova-SIEM-SOAR/issues) · [Request a Feature](https://github.com/Passionate-pop/CyberNova-SIEM-SOAR/issues) · [Star the Repo](https://github.com/Passionate-pop/CyberNova-SIEM-SOAR)
+
+</div>
