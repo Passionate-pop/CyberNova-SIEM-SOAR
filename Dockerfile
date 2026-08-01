@@ -47,8 +47,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Patch build-tooling pip packages that ship with the base image and carry
 # known HIGH CVEs (wheel: CVE-2026-24049, jaraco.context: CVE-2026-23949).
+# Upgrading setuptools is essential: the base python:3.11-slim image ships an
+# older setuptools that VENDORS the vulnerable copies inside
+# setuptools/_vendor/ (wheel-0.45.1, jaraco.context-5.3.0), which Trivy flags.
+# setuptools 83.0.0 vendors fixed versions (wheel-0.46.3, jaraco_context-6.1.0).
 # Keeps the Trivy CI gate (severity CRITICAL,HIGH, ignore-unfixed) green.
-RUN pip install --no-cache-dir --upgrade wheel==0.47.0 jaraco.context==6.1.2
+RUN pip install --no-cache-dir --upgrade setuptools==83.0.0 wheel==0.47.0 jaraco.context==6.1.2
 
 # Copy application code
 COPY cybernova/ /app/cybernova/
