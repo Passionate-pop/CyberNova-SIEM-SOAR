@@ -19,7 +19,7 @@ from cybernova.database.postgres.models import (
 )
 from cybernova.security.encryption.jwt_handler import CurrentUser
 from cybernova.api.dependencies.tenant import get_tenant_id
-from cybernova.auth.dependencies import require_dashboard_view
+from cybernova.auth.dependencies import require_dashboard_view, require_pipeline_manage
 from cybernova.dashboard.service import DashboardService
 from cybernova.security.plan_rate_limiter import get_rate_limit_stats, TIER_LIMITS
 
@@ -942,7 +942,7 @@ async def executive_metrics(
 @router.post("/seed", summary="Seed demo data for the dashboard (devices, blocked IPs)")
 async def dashboard_seed(
     db: AsyncSession = Depends(get_db),
-    user: CurrentUser = Depends(require_dashboard_view),
+    user: CurrentUser = Depends(require_pipeline_manage),
     tenant_id: str = Depends(get_tenant_id),
 ):
     """
