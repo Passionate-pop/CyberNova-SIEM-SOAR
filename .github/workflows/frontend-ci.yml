@@ -105,6 +105,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
 
+      - name: Lowercase GHCR namespace (GHCR requires lowercase image names)
+        run: echo "IMAGE_NS=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Download frontend build
         uses: actions/download-artifact@v8
         with:
@@ -124,7 +127,7 @@ jobs:
           context: cybernova-frontend
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/frontend:ci-${{ github.sha }}
-            ghcr.io/${{ github.repository }}/frontend:latest
+            ghcr.io/${{ env.IMAGE_NS }}/frontend:ci-${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_NS }}/frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

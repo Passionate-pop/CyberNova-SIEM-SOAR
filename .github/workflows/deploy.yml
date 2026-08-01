@@ -74,17 +74,21 @@ jobs:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
 
+      # GHCR requires lowercase image names; repository may contain uppercase.
+      - name: Lowercase GHCR namespace
+        run: echo "IMAGE_NS=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Lint Helm chart
         run: |
           helm lint helm/cybernova/ \
-            --set image.repository=ghcr.io/${{ github.repository }} \
+            --set image.repository=ghcr.io/${{ env.IMAGE_NS }} \
             --set image.tag=${{ needs.prepare.outputs.version }}
 
       - name: Template Helm chart (staging)
         run: |
           helm template cybernova helm/cybernova/ \
             --namespace ${{ needs.prepare.outputs.namespace }} \
-            --set image.repository=ghcr.io/${{ github.repository }} \
+            --set image.repository=ghcr.io/${{ env.IMAGE_NS }} \
             --set image.tag=${{ needs.prepare.outputs.version }} \
             --set config.environment=${{ needs.prepare.outputs.environment }} \
             > /dev/null
@@ -147,6 +151,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
 
+      - name: Lowercase GHCR namespace (GHCR requires lowercase image names)
+        run: echo "IMAGE_NS=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Configure kubectl
         uses: azure/k8s-set-context@v5
         with:
@@ -160,7 +167,7 @@ jobs:
             --create-namespace \
             --wait \
             --timeout 15m \
-            --set image.repository=ghcr.io/${{ github.repository }} \
+            --set image.repository=ghcr.io/${{ env.IMAGE_NS }} \
             --set image.tag=${{ needs.prepare.outputs.version }} \
             --set config.environment=${{ needs.prepare.outputs.environment }} \
             --set config.logLevel=${{ needs.prepare.outputs.environment == 'production' && 'INFO' || 'DEBUG' }} \
