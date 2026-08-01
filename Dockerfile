@@ -1,5 +1,5 @@
 # ── Stage 1: Build dependencies ────────────────────────────────
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ RUN echo 'cybernova:x:1000:1000:cybernova:/nonexistent:/sbin/nologin' > /tmp/pas
     && echo 'cybernova:x:1000:' > /tmp/group
 
 # ── Stage 2: Slim runtime ─────────────────────────────────────
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 WORKDIR /app
 
