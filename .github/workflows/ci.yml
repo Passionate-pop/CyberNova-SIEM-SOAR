@@ -19,7 +19,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - run: pip install ruff
+      # Pin ruff version for reproducible lint results (ruff 0.16+ enables a
+      # much larger default rule set that this codebase wasn't written against).
+      - run: pip install ruff==0.15.14
       - name: Lint with ruff
         run: ruff check cybernova/
 
