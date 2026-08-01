@@ -10,7 +10,7 @@ anyio==4.12.1
 psycopg[async]==3.3.4
 asyncpg==0.31.0
 attrs==26.1.0
-bcrypt==4.3.0
+bcrypt==5.0.0
 bleach==6.2.0
 certifi==2026.5.20
 cffi==2.0.0
