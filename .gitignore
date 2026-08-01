@@ -107,7 +107,7 @@ NUL
 *.msi
 
 # ── Docker & Container ──────────────────────────────────────
-agent/
+/agent/
 helm/cybernova/charts/
 *.lock
 

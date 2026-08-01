@@ -42,6 +42,11 @@
     "@rollup/rollup-linux-x64-gnu": "4.60.2",
     "@rollup/rollup-linux-x64-musl": "4.60.2",
     "@rollup/rollup-win32-x64-gnu": "4.60.2",
-    "@rollup/rollup-win32-x64-msvc": "4.60.2"
+    "@rollup/rollup-win32-x64-msvc": "4.60.2",
+    "lightningcss-linux-x64-gnu": "1.32.0",
+    "lightningcss-linux-x64-musl": "1.32.0",
+    "lightningcss-darwin-arm64": "1.32.0",
+    "lightningcss-darwin-x64": "1.32.0",
+    "lightningcss-win32-x64-msvc": "1.32.0"
   }
 }
