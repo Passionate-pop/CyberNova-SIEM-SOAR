@@ -45,6 +45,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
+# Patch build-tooling pip packages that ship with the base image and carry
+# known HIGH CVEs (wheel: CVE-2026-24049, jaraco.context: CVE-2026-23949).
+# Keeps the Trivy CI gate (severity CRITICAL,HIGH, ignore-unfixed) green.
+RUN pip install --no-cache-dir --upgrade wheel==0.47.0 jaraco.context==6.1.2
+
 # Copy application code
 COPY cybernova/ /app/cybernova/
 COPY scripts/ /app/scripts/

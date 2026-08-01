@@ -195,12 +195,17 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        # Pinned to a v-prefixed release (post March-2026 tag-hijacking
+        # incident); @master is not safe. ignore-unfixed: only fail on CVEs
+        # that have a fix available (Debian trixie OS packages are still
+        # affected/fix_deferred with no upstream fix yet).
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/${{ env.IMAGE_NS }}:ci-${{ github.sha }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
+          ignore-unfixed: true
           exit-code: 1
 
       - name: Upload Trivy results to GitHub Security
