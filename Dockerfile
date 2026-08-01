@@ -51,8 +51,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # older setuptools that VENDORS the vulnerable copies inside
 # setuptools/_vendor/ (wheel-0.45.1, jaraco.context-5.3.0), which Trivy flags.
 # setuptools 83.0.0 vendors fixed versions (wheel-0.46.3, jaraco_context-6.1.0).
-# Keeps the Trivy CI gate (severity CRITICAL,HIGH, ignore-unfixed) green.
-RUN pip install --no-cache-dir --upgrade setuptools==83.0.0 wheel==0.47.0 jaraco.context==6.1.2
+# Also upgrade pip (base image ships 24.0) to clear 5 fixable pip CVEs
+# (CVE-2025-8869, CVE-2026-3219/6357/8643, CVE-2026-1703) — the Trivy SARIF
+# gate scans ALL severities, so even MEDIUM/LOW findings fail the build.
+# Keeps the Trivy CI gate (SARIF all-severity, ignore-unfixed) green.
+RUN pip install --no-cache-dir --upgrade pip==26.2 setuptools==83.0.0 wheel==0.47.0 jaraco.context==6.1.2
 
 # Copy application code
 COPY cybernova/ /app/cybernova/
