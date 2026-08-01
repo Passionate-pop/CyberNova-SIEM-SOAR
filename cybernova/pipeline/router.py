@@ -445,6 +445,85 @@ async def run_full_pipeline(
     }
 
 
+# ── Attack Simulation (demo/CI) ────────────────────────────────────────────────
+
+@router.post("/simulate-attack", summary="Simulate realistic attack events (demo/CI)")
+async def simulate_attack(
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_pipeline_manage),
+    tenant_id: str = Depends(get_tenant_id),
+):
+    """
+    Inject a realistic set of attack events so alerts appear in the dashboard.
+    Used by demo scripts and CI (docker-stack-test). Admin-only (manage permission).
+    """
+    events = [
+        {
+            "event_type": "suspicious_file",
+            "severity": "critical",
+            "source": "host_agent",
+            "hostname": "DESKTOP",
+            "message": "CRITICAL: run_update.bat - dangerous_extension:.bat in Downloads",
+            "log_type": "suspicious_file",
+            "source_ip": "10.0.0.5",
+            "details": {"file_name": "run_update.bat", "file_path": "C:/Users/HP/Downloads/run_update.bat", "findings": ["dangerous_extension:.bat"], "risk_score": 90},
+        },
+        {
+            "event_type": "suspicious_file",
+            "severity": "critical",
+            "source": "host_agent",
+            "hostname": "DESKTOP",
+            "message": "CRITICAL: invoice.pdf.exe - double extension (disguised executable)",
+            "log_type": "suspicious_file",
+            "source_ip": "10.0.0.5",
+            "details": {"file_name": "invoice.pdf.exe", "file_path": "C:/Users/HP/Downloads/invoice.pdf.exe", "findings": ["double_extension", "disguised_executable"], "risk_score": 85},
+        },
+        {
+            "event_type": "suspicious_network",
+            "severity": "high",
+            "source": "host_agent",
+            "hostname": "DESKTOP",
+            "message": "HIGH: External connections established to known C2 domains",
+            "log_type": "suspicious_network",
+            "source_ip": "10.0.0.5",
+            "details": {"connections": ["c2.example.com:443", "malware.example.org:8443"], "count": 3, "findings": ["external_connections"], "risk_score": 75},
+        },
+        {
+            "event_type": "startup_item",
+            "severity": "high",
+            "source": "host_agent",
+            "hostname": "DESKTOP",
+            "message": "HIGH: CyberNovaDemo Run key added for persistence",
+            "log_type": "startup_item",
+            "source_ip": "10.0.0.5",
+            "details": {"registry_key": "HKCU:/Software/Microsoft/Windows/CurrentVersion/Run", "value_name": "CyberNovaDemo", "findings": ["registry_persistence"], "risk_score": 65},
+        },
+    ]
+
+    # Store raw + normalized events so detection can create alerts
+    event_ids = await _direct_ingest(db, tenant_id, "simulation", "agent", events)
+    await db.commit()
+
+    # Run detection synchronously so alerts are visible immediately
+    alerts_created = 0
+    try:
+        from cybernova.detection.services.detection_service import detection_service
+        alerts = await detection_service.scan_pending(db, tenant_id, limit=100)
+        alerts_created = len(alerts)
+        await db.commit()
+    except Exception as e:
+        log.warning("simulate-attack detection pass failed: %s", e)
+
+    log.info("Attack simulation by %s: %d events ingested, %d alerts created",
+             user.username, len(event_ids), alerts_created)
+    return {
+        "status": "completed",
+        "events_ingested": len(event_ids),
+        "alerts_created": alerts_created,
+        "message": "Simulated attack events ingested; alerts created for dashboard display",
+    }
+
+
 # ── Pipeline Status & Monitoring ────────────────────────────────────────────────
 
 @router.get("/status", summary="Get pipeline status and statistics")

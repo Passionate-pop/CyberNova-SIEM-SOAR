@@ -29,6 +29,18 @@ jobs:
           echo "redis-pass-123" > secrets/redis_password.txt
           echo "" > secrets/smtp_password.txt
 
+      - name: Generate self-signed SSL certs (runner has openssl; nginx:alpine 1.31+ does not bundle the CLI)
+        run: |
+          # Newer nginx:alpine images no longer ship the openssl CLI, so the
+          # container entrypoint cannot generate certs. Generate them here on
+          # the runner (ubuntu-latest has openssl) so the bind-mounted
+          # ./nginx/ssl already contains cert.pem + key.pem before compose up.
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout nginx/ssl/key.pem \
+            -out nginx/ssl/cert.pem \
+            -subj '/C=US/ST=Local/L=Local/O=CyberNova/CN=localhost'
+          ls -la nginx/ssl/
+
       - name: Create .env from example (required by docker-compose interpolation)
         run: |
           cp .env.example .env

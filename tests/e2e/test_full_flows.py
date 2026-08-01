@@ -56,10 +56,9 @@ class TestIndividualFlow:
         data = resp.json()
         assert "access_token" in data
         assert data["token_type"] == "bearer"
-        # Backend creates a new tenant for every registration without an
-        # existing org_key, so purpose is always "organization" at registration
-        # time. The frontend later updates this to "individual" via onboarding.
-        assert data.get("purpose") == "organization"
+        # tenant_name='personal' marks an individual account (no org), so
+        # purpose is 'individual' — see auth_service.register().
+        assert data.get("purpose") == "individual"
 
     async def test_login_individual(self, client):
         await _register(client, "bob", "bob@personal.dev", "Str0ng!Pass2",

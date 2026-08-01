@@ -331,10 +331,18 @@ services:
     command:
       - |
         # Generate self-signed certs if missing (dev mode)
-        # openssl is included in nginx:alpine base image
+        # NOTE: nginx:alpine 1.31+ no longer bundles the openssl CLI.
+        # If openssl is unavailable, print a clear error and exit so the
+        # failure is visible (CI pre-generates certs on the runner host).
         if [ ! -f /etc/nginx/ssl/cert.pem ] || [ ! -f /etc/nginx/ssl/key.pem ]; then
           echo '[nginx] Generating self-signed SSL certs for dev...'
           mkdir -p /etc/nginx/ssl
+          if ! command -v openssl >/dev/null 2>&1; then
+            echo '[nginx] ERROR: openssl CLI not found in this image and certs are missing.' >&2
+            echo '[nginx] Generate certs on the host into ./nginx/ssl before starting:' >&2
+            echo '[nginx]   openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx/ssl/key.pem -out nginx/ssl/cert.pem -subj "/C=US/ST=Local/L=Local/O=CyberNova/CN=localhost"' >&2
+            exit 1
+          fi
           openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout /etc/nginx/ssl/key.pem \
             -out /etc/nginx/ssl/cert.pem \

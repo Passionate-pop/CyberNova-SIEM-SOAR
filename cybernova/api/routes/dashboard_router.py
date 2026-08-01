@@ -939,6 +939,106 @@ async def executive_metrics(
     }
 
 
+@router.post("/seed", summary="Seed demo data for the dashboard (devices, blocked IPs)")
+async def dashboard_seed(
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_dashboard_view),
+    tenant_id: str = Depends(get_tenant_id),
+):
+    """
+    Seed realistic demo data (devices + blocked IPs) so the dashboard is not
+    empty on first run. Idempotent: existing devices are left untouched.
+    Used by demo scripts and CI (docker-stack-test).
+    """
+    from cybernova.core.utils.helpers import new_id, utcnow
+
+    now = utcnow()
+
+    # Only seed if this tenant has no devices yet (idempotent)
+    existing = await db.execute(
+        select(func.count(Device.id)).where(Device.tenant_id == tenant_id)
+    )
+    if (existing.scalar() or 0) > 0:
+        return {
+            "status": "skipped",
+            "message": "Devices already exist for this tenant",
+            "devices_created": 0,
+            "blocked_ips_created": 0,
+        }
+
+    demo_devices = [
+        {
+            "hostname": "web-01", "ip_address": "10.0.0.11", "mac_address": "00:1A:2B:3C:4D:01",
+            "os_type": "Linux", "os_version": "Ubuntu 22.04", "agent_version": "1.4.0",
+            "status": "active", "tags": ["web", "dmz"],
+        },
+        {
+            "hostname": "db-01", "ip_address": "10.0.1.22", "mac_address": "00:1A:2B:3C:4D:02",
+            "os_type": "Linux", "os_version": "Ubuntu 22.04", "agent_version": "1.4.0",
+            "status": "active", "tags": ["database", "internal"],
+        },
+        {
+            "hostname": "DESKTOP", "ip_address": "10.0.0.5", "mac_address": "A4:BB:6D:7E:8F:90",
+            "os_type": "Windows", "os_version": "Windows 11 Pro", "agent_version": "1.4.0",
+            "status": "active", "tags": ["workstation", "user"],
+        },
+        {
+            "hostname": "mail-01", "ip_address": "10.0.2.33", "mac_address": "00:1A:2B:3C:4D:04",
+            "os_type": "Linux", "os_version": "Debian 12", "agent_version": "1.4.0",
+            "status": "active", "tags": ["mail", "dmz"],
+        },
+    ]
+
+    for d in demo_devices:
+        db.add(Device(
+            id=new_id(),
+            tenant_id=tenant_id,
+            hostname=d["hostname"],
+            ip_address=d["ip_address"],
+            mac_address=d["mac_address"],
+            os_type=d["os_type"],
+            os_version=d["os_version"],
+            agent_version=d["agent_version"],
+            status=d["status"],
+            is_active=True,
+            tags=d["tags"],
+            last_heartbeat=now,
+            registered_at=now,
+            updated_at=now,
+        ))
+
+    demo_blocked = [
+        {"ip_address": "185.220.101.34", "reason": "Known C2 infrastructure (demo)"},
+        {"ip_address": "45.155.205.233", "reason": "Brute-force source (demo)"},
+        {"ip_address": "91.240.118.58", "reason": "Port scanning (demo)"},
+    ]
+    for b in demo_blocked:
+        existing_ip = await db.execute(
+            select(BlockedIP).where(
+                BlockedIP.tenant_id == tenant_id,
+                BlockedIP.ip_address == b["ip_address"],
+            )
+        )
+        if not existing_ip.scalar_one_or_none():
+            db.add(BlockedIP(
+                tenant_id=tenant_id,
+                ip_address=b["ip_address"],
+                reason=b["reason"],
+                blocked_by="system",
+                created_at=now,
+            ))
+
+    await db.commit()
+    log.info("Dashboard seeded by %s: %d devices, %d blocked IPs",
+             user.username, len(demo_devices), len(demo_blocked))
+    return {
+        "status": "seeded",
+        "message": "Demo data seeded",
+        "devices_created": len(demo_devices),
+        "blocked_ips_created": len(demo_blocked),
+    }
+
+
 # ── Dashboard Service Endpoints (via DashboardService) ──────────────────────
 
 

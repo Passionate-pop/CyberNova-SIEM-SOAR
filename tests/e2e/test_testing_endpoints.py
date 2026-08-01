@@ -225,6 +225,24 @@ class TestAttackSimulation:
                                  headers=_auth(token))
         assert resp.status_code in (200, 403)
 
+    async def test_simulate_attack_produces_dashboard_alerts(self, client):
+        """
+        simulate-attack must create alerts visible in the dashboard.
+        Mirrors the docker-stack CI assertion (GET /dashboard/alerts > 0).
+        """
+        token = await _register_and_get_token(client, "sim_admin2", "sim2@test.com")
+        resp = await client.post("/api/v1/pipeline/simulate-attack",
+                                 headers=_auth(token))
+        if resp.status_code == 403:
+            pytest.skip("Requester lacks pipeline:manage permission")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body.get("alerts_created", 0) > 0, f"0 alerts created: {body}"
+
+        alerts = await client.get("/api/v1/dashboard/alerts", headers=_auth(token))
+        assert alerts.status_code == 200, alerts.text
+        assert len(alerts.json()) > 0, "Dashboard shows zero alerts after simulate-attack"
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Rate Limiting on Testing Endpoints
 # ══════════════════════════════════════════════════════════════════════════════

@@ -55,8 +55,18 @@ async def client() -> AsyncGenerator[httpx.AsyncClient, None]:
                 await session.rollback()
                 raise
 
-    from cybernova.database.postgres.session import get_db
-    app.dependency_overrides[get_db] = _override_get_db
+    from cybernova.database.postgres.session import (
+        get_db,
+        get_db_readonly,
+        get_db_session,
+    )
+    # Override ALL DB dependencies — including get_db_readonly (used by
+    # dashboard routes) and get_db_session — so every route uses the same
+    # in-memory SQLite engine with all tables created. Otherwise read-only
+    # routes spin up a separate empty in-memory DB and fail with
+    # "no such table: alerts".
+    for dep in (get_db, get_db_readonly, get_db_session):
+        app.dependency_overrides[dep] = _override_get_db
 
     # 3. Apply patches
     #    slowapi: the @limiter.limit() decorator wraps endpoint functions at
