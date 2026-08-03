@@ -165,7 +165,7 @@ jobs:
           exit-code: 1
 
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v4.37.3
+        uses: github/codeql-action/upload-sarif@v4.37.4
         with:
           sarif_file: trivy-${{ matrix.service.name }}.sarif
 
